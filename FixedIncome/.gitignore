@@ -1,0 +1,18 @@
+# Cache
+__pycache__/
+*.pyc
+
+# Test
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Env
+.venv/
+env/
+
+# Static files
+node_modules/
+
+
