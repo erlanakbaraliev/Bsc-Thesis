@@ -1,6 +1,0 @@
-// Config for django-stubs which tells Pyright, lsp for python, how django objects behave
-{
-  "venvPath": ".",
-  "venv": ".venv",
-  "plugins": ["typing_extensions.unit_choices", "django-stubs"]
-}
