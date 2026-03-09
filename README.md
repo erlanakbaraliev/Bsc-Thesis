@@ -1,4 +1,4 @@
-## BondPro: Secure Fixed Income Management
+## Secure Fixed Income Management
 
 A centralized web application designed to replace fragile, error-prone spreadsheets with a robust, database-driven platform for managing fixed income bond data.
 
