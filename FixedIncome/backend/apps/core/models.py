@@ -34,8 +34,8 @@ class Bond(models.Model):
     bond_type = models.CharField(max_length=4, choices=TYPE_CHOICES)
 
     # Financial Data
-    face_value = models.DecimalField(max_digits=15, decimal_places=2, help_text="Principal amount")
-    coupon_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="Percentage yield (e.g., 5.25)")
+    face_value = models.DecimalField(max_digits=15, decimal_places=2, help_text="Principal amount") # 1k usd you pay - 1k they pay back on maturity date
+    coupon_rate = models.DecimalField(max_digits=5, decimal_places=2, help_text="Percentage yield (e.g., 5.25)") # interest they'll pay you on a montly or yearly basis
 
     # Dates
     issue_date = models.DateField()
