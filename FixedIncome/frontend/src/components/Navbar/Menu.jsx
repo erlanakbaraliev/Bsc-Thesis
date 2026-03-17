@@ -8,7 +8,7 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import TableViewIcon from '@mui/icons-material/TableView';
-import AddIcon from '@mui/icons-material/Add';
+import AddBoxIcon from '@mui/icons-material/AddBox';
 import { Link, useLocation } from 'react-router'
 
 export default function Menu() {
@@ -44,13 +44,22 @@ export default function Menu() {
           </ListItemButton>
         </List>
         <List component="div" disablePadding>
-          <ListItemButton sx={{ pl: 4 }} component={Link} to="/Create" selected={path === "/Create"}>
+          <ListItemButton sx={{ pl: 4 }} component={Link} to="/create/issuer" selected={path === "/create/issuer"}>
             <ListItemIcon>
-              <AddIcon />
+              <AddBoxIcon />
             </ListItemIcon>
-            <ListItemText primary="Create" />
+            <ListItemText primary="Create Issuer" />
           </ListItemButton>
         </List>
+        <List component="div" disablePadding>
+          <ListItemButton sx={{ pl: 4 }} component={Link} to="/create/bond" selected={path === "/create/bond"}>
+            <ListItemIcon>
+              <AddBoxIcon />
+            </ListItemIcon>
+            <ListItemText primary="Create Bond" />
+          </ListItemButton>
+        </List>
+
       </Collapse>
     </List>
   );

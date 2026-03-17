@@ -13,5 +13,6 @@ router.register(r"transactions", views.TransactionViewSet)
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
+    path("api/meta/", views.meta),
     path("", include(router.urls)),
 ]

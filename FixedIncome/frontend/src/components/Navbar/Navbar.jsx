@@ -16,7 +16,7 @@ const drawerWidth = 240;
 const shortDrawerWidth = 80
 
 export default function Navbar({content}) {
-  const [isBigMenu, setIsBigMenu] = useState(false)
+  const [isBigMenu, setIsBigMenu] = useState(true)
 
   const changeMenu = () => {
     setIsBigMenu(!isBigMenu)
