@@ -1,5 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import permissions, viewsets
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.views import Response
 
 from .models import Bond, Issuer, Transaction
 from .serializers import (
@@ -21,7 +23,7 @@ class IssuerViewSet(viewsets.ModelViewSet):
 
     queryset = Issuer.objects.all()
     serializer_class = IssuerSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 
 class BondViewSet(viewsets.ModelViewSet):
@@ -34,3 +36,15 @@ class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def meta(request):
+    return Response(
+        {
+            "credit_ratings": [{"id": k, "name": v} for k, v in Issuer.RATING_CHOICES],
+            "industries": [{"id": k, "name": v} for k, v in Issuer.INDUSTRY_CHOICES],
+            "bond_types": [{"id": k, "name": v} for k, v in Bond.TYPE_CHOICES],
+        }
+    )

@@ -1,1 +1,9 @@
+.TopBar {
+  display:flex;
+  padding:10px;
+  background-color: rgb(1,1,75);
+  color:white;
+  align-items: center;
+  margin-bottom: 20px;
+}
 
