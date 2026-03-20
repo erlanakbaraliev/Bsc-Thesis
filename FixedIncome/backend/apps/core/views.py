@@ -29,7 +29,7 @@ class IssuerViewSet(viewsets.ModelViewSet):
 class BondViewSet(viewsets.ModelViewSet):
     queryset = Bond.objects.all()
     serializer_class = BondSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
 
 class TransactionViewSet(viewsets.ModelViewSet):

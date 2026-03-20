@@ -6,7 +6,7 @@ class Issuer(models.Model):
     # The company or government issueing the bond
     RATING_CHOICES = [
         ("AAA", "Prime (AAA)"),
-        ("AA", "Hight Grade (AAA)"),
+        ("AA", "Hight Grade (AA)"),
         ("A", "Upper Medium (A)"),
         ("BBB", "Lower Medium Grade (BBB)"),
         ("BB", "Non-Investment Grade (BB)"),
@@ -82,7 +82,7 @@ class Transaction(models.Model):
     price = models.DecimalField(
         max_digits=15, decimal_places=2, help_text="Price per bond at transaction"
     )
-    transaction_date = models.DateField(auto_now_add=True)
+    transaction_date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.action} {self.quantity} of {self.bond.isin}"
