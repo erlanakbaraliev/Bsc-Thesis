@@ -55,6 +55,20 @@ const CreateIssuer = () => {
                     navigate('/')
                 },2000)
             })
+            .catch((error)=>{
+                const data = error.response?.data
+                const errorText = data
+                    ? Object.entries(data)
+                        .map(([field, msgs]) => `${field}: ${msgs[0]}`)
+                        .join(', ')
+                    : "Something went wrong, please try again"
+                setMessage(
+                    <MyMessage
+                        messageText={errorText || "Something went wrong, please try again"}
+                        messageColor={"red"}
+                    />
+                )
+            })
         }
     })
 
@@ -94,22 +108,22 @@ const CreateIssuer = () => {
                         label={'Country'} options={getData()} valueKey='code' 
                         name='country' value={formik.values.country}
                         onChange={formik.handleChange} onBlur={formik.handleBlur}
-                        error={formik.touched && Boolean(formik.errors.country)}
-                        helperText={formik.touched && formik.errors.country}
+                        error={formik.touched.country && Boolean(formik.errors.country)}
+                        helperText={formik.touched.country && formik.errors.country}
                     /> 
                     <SelectForm 
                         label={'Industry'} options={meta.industries} 
                         name='industry' value={formik.values.industry}
                         onChange={formik.handleChange} onBlur={formik.handleBlur}
-                        error={formik.touched && Boolean(formik.errors.industry)}
-                        helperText={formik.touched && formik.errors.industry}
+                            error={formik.touched.industry && Boolean(formik.errors.industry)}
+                        helperText={formik.touched.industry && formik.errors.industry}
                     />          
                     <SelectForm 
                         label={'Credit Rating'} options={meta.credit_ratings} 
                         name='credit_rating' value={formik.values.credit_rating}
                         onChange={formik.handleChange} onBlur={formik.handleBlur}
-                        error={formik.touched && Boolean(formik.errors.credit_rating)}
-                        helperText={formik.touched && formik.errors.credit_rating}
+                        error={formik.touched.credit_rating && Boolean(formik.errors.credit_rating)}
+                        helperText={formik.touched.credit_rating && formik.errors.credit_rating}
                     /> 
                     <Box sx={{ gridColumn: { md: '1 / -1' } }}>
                         <Button type="submit" variant="contained" fullWidth>Submit</Button>
