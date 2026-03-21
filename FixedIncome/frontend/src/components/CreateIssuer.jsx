@@ -7,9 +7,27 @@ import TextForm from './Forms/TextForm';
 import SelectForm from './Forms/SelectForm';
 import { getData } from 'country-list';
 import { useFormik } from 'formik';
+import * as yup from 'yup'
+
 
 const CreateIssuer = () => {
     const [meta, setMeta] = useState(null)
+    const ValidationSchema = yup.object({
+        name: yup
+            .string()
+            .min(2, 'Must be at least 2 chars')
+            .max(100, 'Must be less than 100 chars')
+            .required('Required field'),
+        country: yup
+            .string()
+            .required('Required field'),
+        industry: yup
+            .string()
+            .required('Required field'),
+        credit_rating: yup
+            .string()
+            .required('Required field')
+    })
     const formik = useFormik({
         initialValues: {
             name:'',
@@ -18,14 +36,15 @@ const CreateIssuer = () => {
             credit_rating:''
         },
 
+        validationSchema: ValidationSchema,
+
         onSubmit: (values)=>{
-            AxiosInstance.post('issuers/', values)
-            .then(()=>{
-                console.log('Successfull data submission')
-            })
+            // AxiosInstance.post('issuers/', values)
+            // .then(()=>{
+            //     console.log('Successfull data submission')
+            // })
         }
     })
-    console.log(formik.values)
 
     useEffect(()=>{
         AxiosInstance.get('api/meta/').then((res)=>{
@@ -53,19 +72,29 @@ const CreateIssuer = () => {
                         label={'Name'} 
                         name='name' value={formik.values.name}
                         onChange={formik.handleChange} onBlur={formik.handleBlur}
+                        error={formik.touched.name && Boolean(formik.errors.name)}
+                        helperText={formik.touched.name && formik.errors.name}
                     />                                          
                     <SelectForm 
                         label={'Country'} options={getData()} valueKey='code' 
                         name='country' value={formik.values.country}
                         onChange={formik.handleChange} onBlur={formik.handleBlur}
+                        error={formik.touched && Boolean(formik.errors.country)}
+                        helperText={formik.touched && formik.errors.country}
                     /> 
-                    <SelectForm label={'Industry'} options={meta.industries} 
+                    <SelectForm 
+                        label={'Industry'} options={meta.industries} 
                         name='industry' value={formik.values.industry}
                         onChange={formik.handleChange} onBlur={formik.handleBlur}
+                        error={formik.touched && Boolean(formik.errors.industry)}
+                        helperText={formik.touched && formik.errors.industry}
                     />          
-                    <SelectForm label={'Credit Rating'} options={meta.credit_ratings} 
+                    <SelectForm 
+                        label={'Credit Rating'} options={meta.credit_ratings} 
                         name='credit_rating' value={formik.values.credit_rating}
                         onChange={formik.handleChange} onBlur={formik.handleBlur}
+                        error={formik.touched && Boolean(formik.errors.credit_rating)}
+                        helperText={formik.touched && formik.errors.credit_rating}
                     /> 
                     <Box sx={{ gridColumn: { md: '1 / -1' } }}>
                         <Button type="submit" variant="contained" fullWidth>Submit</Button>
