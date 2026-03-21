@@ -7,13 +7,41 @@ import TextForm from './Forms/TextForm';
 import SelectForm from './Forms/SelectForm';
 import DatePickerForm from './Forms/DatePickerForm';
 import { useFormik } from 'formik'; 
+import * as yup from 'yup'
 
 const CreateBond = () => {
     const [meta, setMeta] = useState(null)
+    const ValidatationSchema = yup.object({
+        isin: yup
+            .string('Example: US0378331005')    
+            .matches(/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/, 'Invalid ISIN format (e.g. US0378331005)')
+            .required('Required field'),
+        issuer: yup
+            .string()
+            .required('Required field'),
+        bond_type: yup
+            .string()
+            .required('Required field'),
+        face_value: yup
+            .number()
+            .required('Required field'),
+        coupon_rate: yup
+            .number()
+            .required('Required field'),
+        issue_date: yup
+            .date()
+            .required('Required field'),
+        maturity_date: yup
+            .date()
+            .required('Required field')    
+            .min(
+                yup.ref('issue_date'),
+                'Maturity date must be after issue date'
+    )
+    })
     const [issuers, setIssuers] = useState([])
     const formik = useFormik({
         initialValues: {
-            name:'',
             isin:'',
             issuer:'',
             bond_type:'',
@@ -23,11 +51,14 @@ const CreateBond = () => {
             maturity_date:''
         },
 
+        validationSchema: ValidatationSchema,
+
         onSubmit: (values)=>{
-            AxiosInstance.post('bonds/', values)
-            .then(()=>{
-                console.log("Successful data submission")
-            })
+            console.log('Data submitted')
+            // AxiosInstance.post('bonds/', values)
+            // .then(()=>{
+            //     console.log("Successful data submission")
+            // })
         }
     })
     console.log(formik.values)
@@ -63,6 +94,8 @@ const CreateBond = () => {
                             value={formik.values.isin}
                             onChange={formik.handleChange}
                             onBlur={formik.handleBlur}
+                            error={formik.touched && Boolean(formik.errors.isin)}
+                            helperText={formik.touched && formik.errors.isin}
                         />
                     </Box>
                     <SelectForm 
@@ -72,6 +105,8 @@ const CreateBond = () => {
                         value={formik.values.issuer}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        error={formik.touched && Boolean(formik.errors.issuer)}
+                        helperText={formik.touched && formik.errors.issuer}
                     />
                     <SelectForm 
                         label={'Bond Type'}
@@ -80,6 +115,8 @@ const CreateBond = () => {
                         value={formik.values.bond_type}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        error={formik.touched && Boolean(formik.errors.bond_type)}
+                        helperText={formik.touched && formik.errors.bond_type}
                     />
                     <TextForm 
                         label={'Face Value'}
@@ -87,6 +124,8 @@ const CreateBond = () => {
                         value={formik.values.face_value}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        error={formik.touched && Boolean(formik.errors.face_value)}
+                        helperText={formik.touched && formik.errors.face_value}
                     />
                     <TextForm 
                         label={'Coupon Rate'}
@@ -94,18 +133,25 @@ const CreateBond = () => {
                         value={formik.values.coupon_rate}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        error={formik.touched && Boolean(formik.errors.coupon_rate)}
+                        helperText={formik.touched && formik.errors.coupon_rate}
                     />
                     <DatePickerForm
                         label={'Issue Date'}
                         name='issue_date'
                         value={formik.values.issue_date}
                         onChange={formik.setFieldValue}
+                        error={formik.touched && Boolean(formik.errors.issue_date)}
+                        helperText={formik.touched && formik.errors.issue_date}
                     />
                     <DatePickerForm
                         label={'Maturity Date'}
                         name='maturity_date'
                         value={formik.values.maturity_date}
                         onChange={formik.setFieldValue}
+                        error={formik.touched && Boolean(formik.errors.maturity_date)}
+                        helperText={formik.touched && formik.errors.maturity_date}
+                        minDate={formik.values.issue_date}
                     />
                     <Box sx={{ gridColumn: { md: '1 / -1' } }}>
                         <Button type="submit" variant="contained" fullWidth>Submit</Button>

@@ -4,8 +4,9 @@ import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
+import FormHelperText from '@mui/material/FormHelperText';
 
-export default function SelectForm({label, options, valueKey='id', name, value='', onChange, onBlur}) {
+export default function SelectForm({label, options, valueKey='id', name, value='', onChange, onBlur, error, helperText}) {
 
   return (
     <FormControl fullWidth>
@@ -18,11 +19,13 @@ export default function SelectForm({label, options, valueKey='id', name, value='
         value={value}
         onChange={onChange}
         onBlur={onBlur}
+        error={error}
       >
         {options.map((option)=>(
           <MenuItem key={option[valueKey]} value={option[valueKey]}>{option.name}</MenuItem>
         ))}
       </Select>
+      <FormHelperText error>{helperText}</FormHelperText>
     </FormControl>
   );
 }
