@@ -8,9 +8,15 @@ import SelectForm from './Forms/SelectForm';
 import DatePickerForm from './Forms/DatePickerForm';
 import { useFormik } from 'formik'; 
 import * as yup from 'yup'
+import { useNavigate } from 'react-router';
+import MyMessage from './Forms/MyMessage';
 
 const CreateBond = () => {
     const [meta, setMeta] = useState(null)
+    const [issuers, setIssuers] = useState([])
+    const [message, setMessage] = useState([])
+    const navigate = useNavigate()
+
     const ValidatationSchema = yup.object({
         isin: yup
             .string('Example: US0378331005')    
@@ -39,7 +45,7 @@ const CreateBond = () => {
                 'Maturity date must be after issue date'
     )
     })
-    const [issuers, setIssuers] = useState([])
+
     const formik = useFormik({
         initialValues: {
             isin:'',
@@ -56,7 +62,29 @@ const CreateBond = () => {
         onSubmit: (values)=>{
             AxiosInstance.post('bonds/', values)
             .then(()=>{
-                console.log("Successful data submission")
+                setMessage(
+                    <MyMessage
+                        messageText={"Successfully submitted data"}
+                        messageColor={"green"}
+                    />
+                )
+                setTimeout(()=>{
+                    navigate('/')
+                },2000)
+            })
+            .catch((error)=>{
+                const data = error.response?.data
+                const errorText = data
+                    ? Object.entries(data)
+                        .map(([field, msgs]) => `${field}: ${msgs[0]}`)
+                        .join(', ')
+                    : "Something went wrong, please try again"
+                setMessage(
+                    <MyMessage
+                        messageText={errorText || "Something went wrong, please try again"}
+                        messageColor={"red"}
+                    />
+                )
             })
         }
     })
@@ -77,6 +105,9 @@ const CreateBond = () => {
                 <AddBoxIcon/>
                 <Typography sx={{marginLeft:'15px'}}>Create Bond</Typography>
             </Box>
+
+            {message}
+
             <form onSubmit={formik.handleSubmit}>
                 <Box sx={{
                     display: 'grid',
@@ -92,7 +123,7 @@ const CreateBond = () => {
                             value={formik.values.isin}
                             onChange={formik.handleChange}
                             onBlur={formik.handleBlur}
-                            error={formik.touched && Boolean(formik.errors.isin)}
+                            error={formik.touched.isin && Boolean(formik.errors.isin)}
                             helperText={formik.touched && formik.errors.isin}
                         />
                     </Box>
@@ -103,8 +134,8 @@ const CreateBond = () => {
                         value={formik.values.issuer}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
-                        error={formik.touched && Boolean(formik.errors.issuer)}
-                        helperText={formik.touched && formik.errors.issuer}
+                        error={formik.touched.issuer && Boolean(formik.errors.issuer)}
+                        helperText={formik.touched.issuer && formik.errors.issuer}
                     />
                     <SelectForm 
                         label={'Bond Type'}
@@ -113,8 +144,8 @@ const CreateBond = () => {
                         value={formik.values.bond_type}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
-                        error={formik.touched && Boolean(formik.errors.bond_type)}
-                        helperText={formik.touched && formik.errors.bond_type}
+                        error={formik.touched.bond_type && Boolean(formik.errors.bond_type)}
+                        helperText={formik.touched.bond_type && formik.errors.bond_type}
                     />
                     <TextForm 
                         label={'Face Value'}
@@ -122,8 +153,8 @@ const CreateBond = () => {
                         value={formik.values.face_value}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
-                        error={formik.touched && Boolean(formik.errors.face_value)}
-                        helperText={formik.touched && formik.errors.face_value}
+                        error={formik.touched.face_value && Boolean(formik.errors.face_value)}
+                        helperText={formik.touched.face_value && formik.errors.face_value}
                     />
                     <TextForm 
                         label={'Coupon Rate'}
@@ -131,24 +162,24 @@ const CreateBond = () => {
                         value={formik.values.coupon_rate}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
-                        error={formik.touched && Boolean(formik.errors.coupon_rate)}
-                        helperText={formik.touched && formik.errors.coupon_rate}
+                        error={formik.touched.coupon_rate && Boolean(formik.errors.coupon_rate)}
+                        helperText={formik.touched.coupon_rate && formik.errors.coupon_rate}
                     />
                     <DatePickerForm
                         label={'Issue Date'}
                         name='issue_date'
                         value={formik.values.issue_date}
                         onChange={formik.setFieldValue}
-                        error={formik.touched && Boolean(formik.errors.issue_date)}
-                        helperText={formik.touched && formik.errors.issue_date}
+                        error={formik.touched.issue_date && Boolean(formik.errors.issue_date)}
+                        helperText={formik.touched.issue_date && formik.errors.issue_date}
                     />
                     <DatePickerForm
                         label={'Maturity Date'}
                         name='maturity_date'
                         value={formik.values.maturity_date}
                         onChange={formik.setFieldValue}
-                        error={formik.touched && Boolean(formik.errors.maturity_date)}
-                        helperText={formik.touched && formik.errors.maturity_date}
+                        error={formik.touched.maturity_date && Boolean(formik.errors.maturity_date)}
+                        helperText={formik.touched.maturity_date && formik.errors.maturity_date}
                         minDate={formik.values.issue_date}
                     />
                     <Box sx={{ gridColumn: { md: '1 / -1' } }}>
