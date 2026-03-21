@@ -54,14 +54,12 @@ const CreateBond = () => {
         validationSchema: ValidatationSchema,
 
         onSubmit: (values)=>{
-            console.log('Data submitted')
-            // AxiosInstance.post('bonds/', values)
-            // .then(()=>{
-            //     console.log("Successful data submission")
-            // })
+            AxiosInstance.post('bonds/', values)
+            .then(()=>{
+                console.log("Successful data submission")
+            })
         }
     })
-    console.log(formik.values)
 
     useEffect(()=>{
         AxiosInstance.get('api/meta/').then((res)=>{

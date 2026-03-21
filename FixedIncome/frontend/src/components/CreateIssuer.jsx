@@ -8,10 +8,14 @@ import SelectForm from './Forms/SelectForm';
 import { getData } from 'country-list';
 import { useFormik } from 'formik';
 import * as yup from 'yup'
-
+import MyMessage from './Forms/MyMessage';
+import { useNavigate } from 'react-router';
 
 const CreateIssuer = () => {
     const [meta, setMeta] = useState(null)
+    const [message, setMessage] = useState([])
+    const navigate = useNavigate()
+
     const ValidationSchema = yup.object({
         name: yup
             .string()
@@ -39,10 +43,18 @@ const CreateIssuer = () => {
         validationSchema: ValidationSchema,
 
         onSubmit: (values)=>{
-            // AxiosInstance.post('issuers/', values)
-            // .then(()=>{
-            //     console.log('Successfull data submission')
-            // })
+            AxiosInstance.post('issuers/', values)
+            .then(()=>{
+                setMessage(
+                    <MyMessage
+                        messageText={"Successfully submitted data"}
+                        messageColor={"green"}
+                    />
+                )
+                setTimeout(()=>{
+                    navigate('/')
+                },2000)
+            })
         }
     })
 
@@ -61,7 +73,10 @@ const CreateIssuer = () => {
                     <AddBoxIcon/>
                     <Typography sx={{marginLeft:'15px'}}>Create Issuer</Typography>
                 </Box>
-                <Box sx={{
+                
+                {message}
+
+               <Box sx={{
                     display: 'grid',
                     gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
                     gap: '30px',
