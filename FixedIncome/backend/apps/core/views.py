@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import Response
 
 from .models import Bond, Issuer, Transaction
@@ -13,27 +14,40 @@ from .serializers import (
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+    queryset = User.objects.all().order_by("id")
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
 
 class IssuerViewSet(viewsets.ModelViewSet):
-    """API endpoint"""
-
-    queryset = Issuer.objects.all()
+    queryset = Issuer.objects.all().order_by("id")
     serializer_class = IssuerSerializer
     permission_classes = [permissions.AllowAny]
 
 
 class BondViewSet(viewsets.ModelViewSet):
-    queryset = Bond.objects.all()
+    queryset = Bond.objects.all().order_by("id")
     serializer_class = BondSerializer
     permission_classes = [permissions.AllowAny]
 
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ["isin"]
+    ordering_fields = [
+        "isin",
+        "issuer__name",
+        "issuer__country",
+        "credit_rating",
+        "bond_type",
+        "face_value",
+        "coupon_rate",
+        "issue_date",
+        "maturity_date",
+    ]
+    ordering = ["id"]  # Default order column
+
 
 class TransactionViewSet(viewsets.ModelViewSet):
-    queryset = Transaction.objects.all()
+    queryset = Transaction.objects.all().order_by("id")
     serializer_class = TransactionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
