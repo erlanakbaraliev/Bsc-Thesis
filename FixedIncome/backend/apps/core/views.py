@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import Response
 
@@ -30,20 +31,37 @@ class BondViewSet(viewsets.ModelViewSet):
     serializer_class = BondSerializer
     permission_classes = [permissions.AllowAny]
 
-    filter_backends = [SearchFilter, OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = {
+        "isin": ["exact", "icontains"],
+        "bond_type": ["exact", "icontains"],
+        "face_value": ["exact", "gte", "lte"],
+        "coupon_rate": ["exact", "gte", "lte"],
+        "issue_date": ["exact", "gte", "lte"],
+        "maturity_date": ["exact", "gte", "lte", "icontains"],
+        "issuer__name": ["exact", "icontains", "icontains"],
+        "issuer__country": ["exact", "icontains"],
+        "issuer__credit_rating": ["exact"],
+    }
+    ordering = ["id"]  # Default order column
     search_fields = ["isin"]
     ordering_fields = [
         "isin",
-        "issuer__name",
-        "issuer__country",
-        "credit_rating",
         "bond_type",
         "face_value",
         "coupon_rate",
         "issue_date",
         "maturity_date",
+        "issuer__name",
+        "issuer__country",
+        "issuer__credit_rating",
     ]
-    ordering = ["id"]  # Default order column
+
+    @action(detail=False, methods=["delete"])
+    def bulk_delete(self, request):
+        ids = request.data.get("ids", [])
+        Bond.objects.filter(id__in=ids).delete()
+        return Response(status=204)
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
