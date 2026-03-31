@@ -5,6 +5,7 @@ import {
 } from 'material-react-table';
 import AxiosInstance from './Axios';  
 import { IconButton, Tooltip } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { Edit as EditIcon } from '@mui/icons-material';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -19,6 +20,7 @@ const TableView = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefetching, setIsRefetching] = useState(false);
   const [rowCount, setRowCount] = useState(0);
+  const [rowSelection, setRowSelection] = useState({});
 
   //table state
   const [columnFilters, setColumnFilters] = useState(
@@ -180,10 +182,22 @@ const TableView = () => {
     }
   };
 
+  const handleBulkDelete = () => {
+    const selectedIds = Object.keys(rowSelection);
+    if (window.confirm(`Delete ${selectedIds.length} bonds?`)) {
+      AxiosInstance.delete('bonds/bulk_delete/', {data: { ids: selectedIds } })
+        .then(()=>{
+          setData(prev => prev.filter(row => !selectedIds.includes(String(row.id))));
+          setRowSelection({});
+        })
+    }
+  }
+
   const table = useMaterialReactTable({
     columns,
     data,
     enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
     enableGlobalFilter: false,
     getRowId: (row) => row.id,
     initialState: { 
@@ -211,6 +225,7 @@ const TableView = () => {
       showAlertBanner: isError,
       showProgressBars: isRefetching,
       sorting,
+      rowSelection,
     },
     // Column resizing
     enableColumnResizing: true,
@@ -251,14 +266,23 @@ const TableView = () => {
 
     // 4. Connect the save logic
     onEditingRowSave: handleSaveRow,
-
-    // Keep your existing layout/mode settings
     enableEditing: true,
     editDisplayMode: 'modal',
     enableColumnPinning: true,
     renderTopToolbarCustomActions: () => (
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <Box sx={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', padding: '8px 0' }}>
+          {Object.keys(rowSelection).length > 0 && (
+            <Button 
+              variant='contained'
+              color='error'
+              size='small'
+              startIcon={<DeleteIcon/>}
+              onClick={handleBulkDelete}
+            >
+              Delete Selected ({Object.keys(rowSelection).length})
+            </Button>
+          )}
          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Issue Date:</Typography>
           <DatePicker label="From" value={dateFilters.issue_date_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
           <DatePicker label="To"   value={dateFilters.issue_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
