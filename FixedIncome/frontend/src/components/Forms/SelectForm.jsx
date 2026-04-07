@@ -6,7 +6,7 @@ import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 import FormHelperText from '@mui/material/FormHelperText';
 
-export default function SelectForm({label, options, valueKey='id', name, value='', onChange, onBlur, error, helperText}) {
+export default function SelectForm({label, options, valueKey='id', name='name', value='', onChange=()=>{}, onBlur=()=>{}, error=false, helperText=''}) {
 
   return (
     <FormControl fullWidth>
