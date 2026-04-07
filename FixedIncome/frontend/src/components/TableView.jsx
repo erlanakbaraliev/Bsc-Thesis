@@ -4,14 +4,15 @@ import {
   useMaterialReactTable,
 } from 'material-react-table';
 import AxiosInstance from './Axios';  
-import { IconButton, Tooltip } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { Edit as EditIcon } from '@mui/icons-material';
+import EditIcon from '@mui/icons-material/Edit';
+import { IconButton, Tooltip } from '@mui/material';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { Box, Button, Typography } from '@mui/material';
 import dayjs from 'dayjs';
+import EditBondModal from './Forms/EditBondModal';
 
 const TableView = () => {
   //data and fetching state
@@ -21,6 +22,7 @@ const TableView = () => {
   const [isRefetching, setIsRefetching] = useState(false);
   const [rowCount, setRowCount] = useState(0);
   const [rowSelection, setRowSelection] = useState({});
+  const [refreshKey, setRefreshKey] = useState(0);
 
   //table state
   const [columnFilters, setColumnFilters] = useState(
@@ -101,6 +103,7 @@ const TableView = () => {
     pagination.pageIndex, //re-fetch when page index changes
     pagination.pageSize, //re-fetch when page size changes
     sorting, //re-fetch when sorting changes
+    refreshKey, //re-feth when a bond is edited
   ]);
 
   const columns = useMemo(
@@ -115,7 +118,7 @@ const TableView = () => {
         accessorKey: 'issuer_country',
         header: 'Issuer Country',
         minSize: 130,
-        size: 130
+        size: 130,
       },
       {
         accessorKey: 'issuer_name',
@@ -164,24 +167,6 @@ const TableView = () => {
     [],
   );
 
-  const handleSaveRow = async ({ table, row, values }) => {
-    try {
-      // values contains the updated row data
-      // Usually, you'd use the row ID (like ISIN or an internal ID)
-      await AxiosInstance.put(`bonds/${values.isin}/`, values);
-      
-      // Update local state to reflect changes without a full refetch
-      const newData = [...data];
-      newData[row.index] = values;
-      setData(newData);
-      
-      table.setEditingRow(null); // Exit editing mode
-    } catch (error) {
-      console.error("Failed to save:", error);
-      // You could trigger a toast notification here
-    }
-  };
-
   const handleBulkDelete = () => {
     const selectedIds = Object.keys(rowSelection);
     if (window.confirm(`Delete ${selectedIds.length} bonds?`)) {
@@ -203,7 +188,8 @@ const TableView = () => {
     initialState: { 
       showColumnFilters: false,
       density: 'compact',
-      columnPinning: { right: ['mrt-row-actions'] } 
+      columnPinning: { right: ['mrt-row-actions'] },
+      columnVisibility: {issuer_country: false},
     },
     manualFiltering: true,
     manualPagination: true,
@@ -246,29 +232,6 @@ const TableView = () => {
         overflow: 'visible',  // Prevents clipping
       },
     },
-    // Edit modal
-    // 1. Configure the Action Column width and behavior
-    displayColumnDefOptions: {
-      'mrt-row-actions': {
-        header: 'Edit', // Keep header short
-        size: 60,       // Tight width for just one icon
-      },
-    },
-
-    // 3. Define the actual Edit Icon
-    renderRowActions: ({ row, table }) => (
-      <Tooltip title="Edit Bond">
-        <IconButton onClick={() => table.setEditingRow(row)}>
-          <EditIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    ),
-
-    // 4. Connect the save logic
-    onEditingRowSave: handleSaveRow,
-    enableEditing: true,
-    editDisplayMode: 'modal',
-    enableColumnPinning: true,
     renderTopToolbarCustomActions: () => (
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <Box sx={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', padding: '8px 0' }}>
@@ -295,6 +258,36 @@ const TableView = () => {
         </Box>
       </LocalizationProvider>
     ),
+    // Edit modal
+    enableEditing: true,
+    enableRowActions: true,
+    enableColumnPinning: true,
+    renderRowActions: ({ row, table }) => (
+      <Tooltip title='Edit Bond'>
+        <IconButton
+          onClick={() => {
+            table.setEditingRow(row);
+          }}
+        >
+          <EditIcon />
+        </IconButton>
+      </Tooltip>
+    ),
+    renderEditRowDialogContent: ({ row, table }) => (
+      <EditBondModal row={row} table={table} onSaved={(bondId, newData) => setRefreshKey(refreshKey+1) }/>
+    ),
+    displayColumnDefOptions: {
+      'mrt-row-actions': {
+        header: 'Edit', // Keep header short
+        size: 60,       // Tight width for just one icon
+        muiTableHeadCellProps: {
+          align: 'center',
+        },
+        muiTableBodyCellProps: {
+          align: 'center',
+        },
+      },
+    },
   });
 
   return <MaterialReactTable table={table} />;

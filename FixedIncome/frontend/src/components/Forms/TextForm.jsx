@@ -1,6 +1,6 @@
 import TextField from '@mui/material/TextField';
 
-export default function TextForm({label, name, value, onChange, onBlur, error, helperText}) {
+export default function TextForm({label, name, value='', onChange=()=>{}, onBlur=()=>{}, error=false, helperText=''}) {
   return (
     <TextField 
       id="outlined-basic" 
