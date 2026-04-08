@@ -10,7 +10,7 @@ export default function DatePickerForm({label, name, value, onChange, error, hel
         label={label}
         name={name}
         value={value ? dayjs(value) : null}
-        onChange={(newValue) => onChange(name, newValue? newValue.format('YYYY-MM-DD') : '')}
+        onChange={onChange}
         minDate={minDate ? dayjs(minDate) : null}
         slotProps={{
           textField: {
