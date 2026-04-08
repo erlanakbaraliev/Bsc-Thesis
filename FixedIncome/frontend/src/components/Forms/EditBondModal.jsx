@@ -13,6 +13,7 @@ import DatePickerForm from './DatePickerForm';
 import { useForm, Controller } from "react-hook-form"
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
+import dayjs from 'dayjs';
 
 const ValidationSchema = yup.object({
     isin: yup
@@ -86,11 +87,34 @@ const EditBondModal = ({row, table, onSaved}) => {
         })
     },[]);
 
-    const onSubmit = (data, e) => {
-        AxiosInstance.patch(`bonds/${bond.id}/`, data)
+    const onSubmit = (values, e) => {
+        const formattedValues = {
+            ...values,
+            issue_date:    dayjs(values.issue_date).format('YYYY-MM-DD'),
+            maturity_date: dayjs(values.maturity_date).format('YYYY-MM-DD'),
+        }
+
+        AxiosInstance.patch(`bonds/${bond.id}/`, formattedValues)
         .then((res)=>{
             onSaved(bond.id, res.data);
             table.setEditingRow(null);
+        })
+        .catch((error) => {
+            console.log(error)
+
+            if (error.response) {
+                // Backend returned an error response (e.g. 400, 403, 500)
+                console.log(error.response.data);
+                alert("Error: " + JSON.stringify(error.response.data));
+            } 
+            else if (error.request) {
+                // Request sent but no response received
+                alert("Server not responding");
+            } 
+            else {
+                // Something else happened
+                alert("Unexpected error occurred");
+            }
         })
     };
 
@@ -208,7 +232,7 @@ const EditBondModal = ({row, table, onSaved}) => {
                                     label='Issue Date'
                                     name={field.name}
                                     value={field.value}
-                                    onChange={(name, value) => field.onChange(value)}
+                                    onChange={field.onChange}
                                     error={Boolean(errors.issue_date)}
                                     helperText={errors.issue_date?.message}
                                 />
@@ -222,7 +246,7 @@ const EditBondModal = ({row, table, onSaved}) => {
                                     label='Maturity Date'
                                     name={field.name}
                                     value={field.value}
-                                    onChange={(name, value) => field.onChange(value)}
+                                    onChange={field.onChange}
                                     error={Boolean(errors.maturity_date)}
                                     helperText={errors.maturity_date?.message}
                                     minDate={issueDate}
