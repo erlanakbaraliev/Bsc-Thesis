@@ -1,18 +1,43 @@
 import { useEffect, useMemo, useState } from 'react';
+
+// Third-party libraries
+import dayjs from 'dayjs';
 import {
   MaterialReactTable,
   useMaterialReactTable,
 } from 'material-react-table';
-import AxiosInstance from './Axios';  
+import { mkConfig, generateCsv, download } from 'export-to-csv';
+
+// MUI components
+import {
+  Box,
+  Button,
+  IconButton,
+  Tooltip,
+  Typography,
+  Menu,
+  MenuItem,
+} from '@mui/material';
+
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+
+// MUI icons
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import { IconButton, Tooltip } from '@mui/material';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { Box, Button, Typography } from '@mui/material';
-import dayjs from 'dayjs';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+
+// Local modules
+import AxiosInstance from './Axios';
 import EditBondModal from './Forms/EditBondModal';
+
+
+const csvConfig = mkConfig({
+  fieldSeparator: ',',
+  decimalSeparator: '.',
+  useKeysAsHeaders: true,
+});
 
 const TableView = () => {
   //data and fetching state
@@ -39,6 +64,13 @@ const TableView = () => {
     pageIndex: 0,
     pageSize: 10,
   });
+
+  // 1. State for the Export Dropdown
+  const [exportAnchorEl, setExportAnchorEl] = useState(null);
+  const openExportMenu = Boolean(exportAnchorEl);
+
+  const handleExportClick = (event) => setExportAnchorEl(event.currentTarget);
+  const handleExportClose = () => setExportAnchorEl(null);
 
   //if you want to avoid useEffect, look at the React Query example instead
   useEffect(() => {
@@ -178,6 +210,12 @@ const TableView = () => {
     }
   }
 
+  const handleExportRows = (rows) => {
+    const rowData = rows.map((row) => row.original);
+    const csv = generateCsv(csvConfig)(rowData);
+    download(csvConfig)(csv);
+  };
+
   const table = useMaterialReactTable({
     columns,
     data,
@@ -185,6 +223,7 @@ const TableView = () => {
     onRowSelectionChange: setRowSelection,
     enableGlobalFilter: false,
     getRowId: (row) => row.id,
+    positionToolbarAlertBanner: 'bottom',
     initialState: { 
       showColumnFilters: false,
       density: 'compact',
@@ -235,6 +274,7 @@ const TableView = () => {
     renderTopToolbarCustomActions: () => (
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <Box sx={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', padding: '8px 0' }}>
+
           {Object.keys(rowSelection).length > 0 && (
             <Button 
               variant='contained'
@@ -246,6 +286,52 @@ const TableView = () => {
               Delete Selected ({Object.keys(rowSelection).length})
             </Button>
           )}
+
+          {/* ---------------- EXPORT DROPDOWN ---------------- */}
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleExportClick}
+          >
+            Export Data
+          </Button>
+
+          <Menu
+            anchorEl={exportAnchorEl}
+            open={openExportMenu}
+            onClose={handleExportClose}
+          >
+
+            <MenuItem
+              disabled={table.getPrePaginationRowModel().rows.length === 0}
+              //export all rows, including from the next page, (still respects filtering and sorting)
+              onClick={() =>
+                handleExportRows(table.getPrePaginationRowModel().rows)
+              }
+            >
+              Export All Rows
+            </MenuItem>
+
+            <MenuItem
+              disabled={table.getRowModel().rows.length === 0}
+              //export all rows as seen on the screen (respects pagination, sorting, filtering, etc.)
+              onClick={() => handleExportRows(table.getRowModel().rows)}
+            >
+              Export Page Rows
+            </MenuItem>
+
+            <MenuItem
+              disabled={
+                !table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
+              }
+              //only export selected rows
+              onClick={() => handleExportRows(table.getSelectedRowModel().rows)}
+            >
+              Export Selected Rows
+            </MenuItem>
+          </Menu>
+
          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Issue Date:</Typography>
           <DatePicker label="From" value={dateFilters.issue_date_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
           <DatePicker label="To"   value={dateFilters.issue_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
