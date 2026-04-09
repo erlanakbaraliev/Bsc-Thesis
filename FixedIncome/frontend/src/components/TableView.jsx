@@ -304,32 +304,46 @@ const TableView = () => {
           >
 
             <MenuItem
-              disabled={table.getPrePaginationRowModel().rows.length === 0}
-              //export all rows, including from the next page, (still respects filtering and sorting)
-              onClick={() =>
-                handleExportRows(table.getPrePaginationRowModel().rows)
+              disabled={
+                !table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
               }
+              //only export selected rows
+              onClick={() => {
+                handleExportRows(table.getSelectedRowModel().rows);
+                handleExportClose();
+              }}
             >
-              Export All Rows
+              <ListItemIcon>
+                <CheckBoxIcon fontSize='small'/>
+              </ListItemIcon>
+              Export Selected Rows
             </MenuItem>
 
             <MenuItem
               disabled={table.getRowModel().rows.length === 0}
               //export all rows as seen on the screen (respects pagination, sorting, filtering, etc.)
-              onClick={() => handleExportRows(table.getRowModel().rows)}
+              onClick={() => {
+                handleExportRows(table.getRowModel().rows);
+                handleExportClose();
+              }}
             >
-              Export Page Rows
+              <ListItemIcon>
+                <ArticleIcon fontSize='small'/>
+              </ListItemIcon>
+              Export Current Page (5+)
             </MenuItem>
 
             <MenuItem
-              disabled={
-                !table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
-              }
-              //only export selected rows
-              onClick={() => handleExportRows(table.getSelectedRowModel().rows)}
+              onClick={() => {
+                handleExportClose();
+              }}
             >
-              Export Selected Rows
+              <ListItemIcon>
+                <DatasetIcon fontSize='small'/>
+              </ListItemIcon>
+              Export All Matches (Streaming)
             </MenuItem>
+
           </Menu>
 
          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Issue Date:</Typography>
