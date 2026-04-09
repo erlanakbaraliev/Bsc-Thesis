@@ -194,8 +194,27 @@ const TableView = () => {
     }
   }
 
-  const handleExportAllData = () => {
-    window.location.href = API_ENDPOINTS.STREAMING_EXPORT;
+  const getExportUrl = () => {
+    const params = new URLSearchParams();
+    
+    if (sorting.length) {
+      const ordering = getOrdering(sorting);
+      params.append('ordering', ordering);
+    }
+     
+    const filtering = getColumnFilters(columnFilters);
+    Object.entries(filtering).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, value)
+      }
+    })
+
+    if (dateFilters.issue_date_gte) params.append('issue_date__gte', formatDateParam(dateFilters.issue_date_gte))
+    if (dateFilters.issue_date_lte) params.append('issue_date__lte', formatDateParam(dateFilters.issue_date_lte))
+    if (dateFilters.maturity_date_gte) params.append('maturity_date__gte', formatDateParam(dateFilters.maturity_date_gte))
+    if (dateFilters.maturity_date_lte) params.append('maturity_date__lte', formatDateParam(dateFilters.maturity_date_lte))
+
+    return `${API_ENDPOINTS.STREAMING_EXPORT}?${params.toString()}`;
   };
 
   const table = useMaterialReactTable({
@@ -317,7 +336,7 @@ const TableView = () => {
 
             <MenuItem
               onClick={() => {
-                handleExportAllData();
+                window.location.href = getExportUrl();
                 handleExportMenuClose();
               }}
             >

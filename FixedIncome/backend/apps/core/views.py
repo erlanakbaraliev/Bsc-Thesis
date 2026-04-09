@@ -1,4 +1,7 @@
+import csv
+
 from django.contrib.auth.models import User
+from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -24,6 +27,11 @@ class IssuerViewSet(viewsets.ModelViewSet):
     queryset = Issuer.objects.all().order_by("id")
     serializer_class = IssuerSerializer
     permission_classes = [permissions.AllowAny]
+
+
+class Echo:
+    def write(self, value):
+        return value
 
 
 class BondViewSet(viewsets.ModelViewSet):
@@ -62,6 +70,49 @@ class BondViewSet(viewsets.ModelViewSet):
         ids = request.data.get("ids", [])
         Bond.objects.filter(id__in=ids).delete()
         return Response(status=204)
+
+    @action(detail=False, methods=["get"])
+    def export_csv(self, request):
+        # This applies all your Search, Ordering, and DjangoFilters automatically!
+        queryset = self.filter_queryset(self.get_queryset()).select_related("issuer")
+
+        def row_generator():
+            echo = Echo()
+            writer = csv.writer(echo)
+
+            yield writer.writerow(
+                [
+                    "ISIN",
+                    "Issuer",
+                    "Country",
+                    "Rating",
+                    "Type",
+                    "Face Value",
+                    "Coupon",
+                    "Issue Date",
+                    "Maturity Date",
+                ]
+            )
+
+            # .iterator() ensures we don't crash the server with millions of rows
+            for bond in queryset.iterator(chunk_size=2000):
+                yield writer.writerow(
+                    [
+                        bond.isin,
+                        bond.issuer.name,
+                        bond.issuer.country,
+                        bond.issuer.get_credit_rating_display(),  # Use display name
+                        bond.get_bond_type_display(),
+                        bond.face_value,
+                        bond.coupon_rate,
+                        bond.issue_date,
+                        bond.maturity_date,
+                    ]
+                )
+
+        response = StreamingHttpResponse(row_generator(), content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="bonds_export.csv"'
+        return response
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
