@@ -6,7 +6,6 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from 'material-react-table';
-import { mkConfig, generateCsv, download } from 'export-to-csv';
 
 // MUI components
 import {
@@ -17,6 +16,7 @@ import {
   Typography,
   Menu,
   MenuItem,
+  ListItemIcon
 } from '@mui/material';
 
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -27,17 +27,20 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import ArticleIcon from '@mui/icons-material/Article';
+import DatasetIcon from '@mui/icons-material/Dataset';
 
 // Local modules
 import AxiosInstance from './Axios';
 import EditBondModal from './Forms/EditBondModal';
 
+// Local Utils
+import { getOrdering, getColumnFilters } from '../utils/Utils.js'
+import { handleExportRows } from '../utils/CsvExportUtils.js';
+import { formatDateParam } from '../utils/DateUtils.js';
+import { API_ENDPOINTS } from '../config/Api.js';
 
-const csvConfig = mkConfig({
-  fieldSeparator: ',',
-  decimalSeparator: '.',
-  useKeysAsHeaders: true,
-});
 
 const TableView = () => {
   //data and fetching state
@@ -65,12 +68,12 @@ const TableView = () => {
     pageSize: 10,
   });
 
-  // 1. State for the Export Dropdown
+  // export nenu dropdown state
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
   const openExportMenu = Boolean(exportAnchorEl);
 
-  const handleExportClick = (event) => setExportAnchorEl(event.currentTarget);
-  const handleExportClose = () => setExportAnchorEl(null);
+  const handleExportMenuClick = (event) => setExportAnchorEl(event.currentTarget);
+  const handleExportMenuClose = () => setExportAnchorEl(null);
 
   //if you want to avoid useEffect, look at the React Query example instead
   useEffect(() => {
@@ -81,27 +84,8 @@ const TableView = () => {
         setIsRefetching(true);
       }
 
-      const fieldMap = {
-        issuer_country: 'issuer__country',
-        issuer_name: 'issuer__name',
-        credit_rating: 'issuer__credit_rating',
-      }
-
-      const ordering = sorting.length
-        ? sorting.map(s => (s.desc ? '-' : '') + (fieldMap[s.id] || s.id)).join(',')
-        : undefined;
-
-      const textFields = ['isin', 'issuer__country', 'issuer__name', 'bond_type'];
-
-      const filters = columnFilters.reduce((acc, col) => {
-        const columnName = fieldMap[col.id] || col.id;
-        if (textFields.includes(columnName)) {
-          acc[`${columnName}__icontains`] = col.value;
-        } else {
-          acc[`${columnName}`] = col.value;
-        }
-        return acc;
-      }, {});
+      const ordering = getOrdering(sorting)
+      const filters = getColumnFilters(columnFilters)
 
       try {
         const response = await AxiosInstance.get('bonds/', {
@@ -110,10 +94,10 @@ const TableView = () => {
             page: pagination.pageIndex + 1,
             page_size: pagination.pageSize,
             ...filters,
-            issue_date__gte:   dateFilters.issue_date_gte    ? dayjs(dateFilters.issue_date_gte).format('YYYY-MM-DD')    : undefined,
-            issue_date__lte:   dateFilters.issue_date_lte    ? dayjs(dateFilters.issue_date_lte).format('YYYY-MM-DD')    : undefined,
-            maturity_date__gte: dateFilters.maturity_date_gte ? dayjs(dateFilters.maturity_date_gte).format('YYYY-MM-DD') : undefined,
-            maturity_date__lte: dateFilters.maturity_date_lte ? dayjs(dateFilters.maturity_date_lte).format('YYYY-MM-DD') : undefined,
+            issue_date__gte:    formatDateParam(dateFilters.issue_date_gte),
+            issue_date__lte:    formatDateParam(dateFilters.issue_date_lte),
+            maturity_date__gte: formatDateParam(dateFilters.maturity_date_gte),
+            maturity_date__lte: formatDateParam(dateFilters.maturity_date_lte)
           }
         });
         setData(response.data.results);
@@ -210,10 +194,8 @@ const TableView = () => {
     }
   }
 
-  const handleExportRows = (rows) => {
-    const rowData = rows.map((row) => row.original);
-    const csv = generateCsv(csvConfig)(rowData);
-    download(csvConfig)(csv);
+  const handleExportAllData = () => {
+    window.location.href = API_ENDPOINTS.STREAMING_EXPORT;
   };
 
   const table = useMaterialReactTable({
@@ -292,7 +274,7 @@ const TableView = () => {
             variant="outlined"
             size="small"
             startIcon={<FileDownloadIcon />}
-            onClick={handleExportClick}
+            onClick={handleExportMenuClick}
           >
             Export Data
           </Button>
@@ -300,7 +282,7 @@ const TableView = () => {
           <Menu
             anchorEl={exportAnchorEl}
             open={openExportMenu}
-            onClose={handleExportClose}
+            onClose={handleExportMenuClose}
           >
 
             <MenuItem
@@ -310,7 +292,7 @@ const TableView = () => {
               //only export selected rows
               onClick={() => {
                 handleExportRows(table.getSelectedRowModel().rows);
-                handleExportClose();
+                handleExportMenuClose();
               }}
             >
               <ListItemIcon>
@@ -324,7 +306,7 @@ const TableView = () => {
               //export all rows as seen on the screen (respects pagination, sorting, filtering, etc.)
               onClick={() => {
                 handleExportRows(table.getRowModel().rows);
-                handleExportClose();
+                handleExportMenuClose();
               }}
             >
               <ListItemIcon>
@@ -335,7 +317,8 @@ const TableView = () => {
 
             <MenuItem
               onClick={() => {
-                handleExportClose();
+                handleExportAllData();
+                handleExportMenuClose();
               }}
             >
               <ListItemIcon>
@@ -374,7 +357,7 @@ const TableView = () => {
       </Tooltip>
     ),
     renderEditRowDialogContent: ({ row, table }) => (
-      <EditBondModal row={row} table={table} onSaved={(bondId, newData) => setRefreshKey(refreshKey+1) }/>
+      <EditBondModal row={row} table={table} onSaved={(bondId, newData) => setRefreshKey(prev => prev + 1) }/>
     ),
     displayColumnDefOptions: {
       'mrt-row-actions': {
