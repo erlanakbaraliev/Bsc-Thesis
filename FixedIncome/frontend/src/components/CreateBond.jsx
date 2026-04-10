@@ -6,10 +6,22 @@ import Button from '@mui/material/Button';
 import TextForm from './Forms/TextForm';
 import SelectForm from './Forms/SelectForm';
 import DatePickerForm from './Forms/DatePickerForm';
-import { useFormik } from 'formik'; 
 import * as yup from 'yup'
 import { useNavigate } from 'react-router';
 import MyMessage from './Forms/MyMessage';
+import { useForm, Controller } from "react-hook-form"
+import { yupResolver } from '@hookform/resolvers/yup';
+import { formatDateParam } from '../utils/DateUtils';   
+
+const fieldLabels = {
+  isin: "ISIN",
+  issuer: "Issuer",
+  bond_type: "Bond type",
+  face_value: "Face value",
+  coupon_rate: "Coupon rate",
+  issue_date: "Issue date",
+  maturity_date: "Maturity date"
+};
 
 const CreateBond = () => {
     const [meta, setMeta] = useState(null)
@@ -17,37 +29,45 @@ const CreateBond = () => {
     const [message, setMessage] = useState([])
     const navigate = useNavigate()
 
-    const ValidatationSchema = yup.object({
+    const ValidationSchema = yup.object({
         isin: yup
-            .string('Example: US0378331005')    
+            .string()
+            .transform(value => value?.toUpperCase())
+            .length(12, 'ISIN must be exactly 12 characters')
             .matches(/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/, 'Invalid ISIN format (e.g. US0378331005)')
             .required('Required field'),
         issuer: yup
-            .string()
+            .number()
+            .integer('Issuer must be valid')
+            .positive()
             .required('Required field'),
         bond_type: yup
             .string()
             .required('Required field'),
         face_value: yup
             .number()
+            .typeError('Face value must be a number')
+            .positive('Face value must be positive')
             .required('Required field'),
         coupon_rate: yup
             .number()
+            .typeError('Coupon rate must be a number')
+            .min(0, 'Coupon rate cannot be negative')
+            .max(100, 'Coupon rate cannot exceed 100%')
             .required('Required field'),
         issue_date: yup
             .date()
+            .typeError('Invalid issue date')
             .required('Required field'),
         maturity_date: yup
             .date()
-            .required('Required field')    
-            .min(
-                yup.ref('issue_date'),
-                'Maturity date must be after issue date'
-    )
+            .typeError('Invalid maturity date')
+            .required('Required field')
+            .min(yup.ref('issue_date'), 'Maturity date must be after issue date'),
     })
 
-    const formik = useFormik({
-        initialValues: {
+    const { handleSubmit, control, watch, formState: {errors} } = useForm({
+        defaultValues: {
             isin:'',
             issuer:'',
             bond_type:'',
@@ -56,38 +76,47 @@ const CreateBond = () => {
             issue_date:'',
             maturity_date:''
         },
+        resolver: yupResolver(ValidationSchema)
+    });
 
-        validationSchema: ValidatationSchema,
+    const issueDate = watch('issue_date')
 
-        onSubmit: (values)=>{
-            AxiosInstance.post('bonds/', values)
-            .then(()=>{
-                setMessage(
-                    <MyMessage
-                        messageText={"Successfully submitted data"}
-                        messageColor={"green"}
-                    />
-                )
-                setTimeout(()=>{
-                    navigate('/')
-                },2000)
-            })
-            .catch((error)=>{
-                const data = error.response?.data
-                const errorText = data
-                    ? Object.entries(data)
-                        .map(([field, msgs]) => `${field}: ${msgs[0]}`)
-                        .join(', ')
-                    : "Something went wrong, please try again"
-                setMessage(
-                    <MyMessage
-                        messageText={errorText || "Something went wrong, please try again"}
-                        messageColor={"red"}
-                    />
-                )
-            })
+    const onSubmit = (values) => {
+        const formattedValues = {
+            ...values,
+            issue_date:    formatDateParam(values.issue_date),
+            maturity_date: formatDateParam(values.maturity_date)
         }
-    })
+
+        console.log(formattedValues)
+
+        AxiosInstance.post('bonds/', formattedValues)
+        .then(() => {
+            setMessage(
+                <MyMessage
+                    messageText={"Successfully submitted data"}
+                    messageColor={"green"}
+                />
+            )
+            setTimeout(()=>{
+                navigate('/')
+            }, 2000)
+        })
+        .catch((error) => {
+            const data = error.response?.data
+            const errorText = Object.entries(data)
+                              .map(( [k, v] ) => `${fieldLabels[k]}: ${v[0]}`)
+                              .join('\n')
+            console.log(errorText)
+
+            setMessage(
+                <MyMessage
+                    messageText={errorText || "Something went wrong. Please try again later."}
+                    messageColor={"red"}
+                />
+            )
+        })
+    }
 
     useEffect(()=>{
         AxiosInstance.get('api/meta/').then((res)=>{
@@ -108,7 +137,7 @@ const CreateBond = () => {
 
             {message}
 
-            <form onSubmit={formik.handleSubmit}>
+            <form>
                 <Box sx={{
                     display: 'grid',
                     gridTemplateColumns: {xs: '1fr', md: '1fr 1fr'},
@@ -117,73 +146,122 @@ const CreateBond = () => {
                     boxShadow: 'rgba(100,100,111,0.2) 0px 7px 29px 0px',
                 }}>
                     <Box sx={{ gridColumn: {md: '1/-1'} }}>
-                        <TextForm 
-                            label={'ISIN'}
-                            name='isin' 
-                            value={formik.values.isin}
-                            onChange={formik.handleChange}
-                            onBlur={formik.handleBlur}
-                            error={formik.touched.isin && Boolean(formik.errors.isin)}
-                            helperText={formik.touched && formik.errors.isin}
-                        />
+                        <Controller
+                            name='isin'
+                            control={control}
+                            render={( {field} ) => (
+                                <TextForm 
+                                    label='ISIN'
+                                    name={field.name}
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    onBlur={field.onBlur}
+                                    error={Boolean(errors.isin)}
+                                    helperText={errors.isin?.message}
+                                />
+                            )}
+                        > 
+                        </Controller>
                     </Box>
-                    <SelectForm 
-                        label={'Issuer'} 
-                        options={issuers}
-                        name='issuer' 
-                        value={formik.values.issuer}
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        error={formik.touched.issuer && Boolean(formik.errors.issuer)}
-                        helperText={formik.touched.issuer && formik.errors.issuer}
-                    />
-                    <SelectForm 
-                        label={'Bond Type'}
-                        options={meta.bond_types}
-                        name='bond_type' 
-                        value={formik.values.bond_type}
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        error={formik.touched.bond_type && Boolean(formik.errors.bond_type)}
-                        helperText={formik.touched.bond_type && formik.errors.bond_type}
-                    />
-                    <TextForm 
-                        label={'Face Value'}
-                        name='face_value' 
-                        value={formik.values.face_value}
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        error={formik.touched.face_value && Boolean(formik.errors.face_value)}
-                        helperText={formik.touched.face_value && formik.errors.face_value}
-                    />
-                    <TextForm 
-                        label={'Coupon Rate'}
-                        name='coupon_rate' 
-                        value={formik.values.coupon_rate}
-                        onChange={formik.handleChange}
-                        onBlur={formik.handleBlur}
-                        error={formik.touched.coupon_rate && Boolean(formik.errors.coupon_rate)}
-                        helperText={formik.touched.coupon_rate && formik.errors.coupon_rate}
-                    />
-                    <DatePickerForm
-                        label={'Issue Date'}
-                        name='issue_date'
-                        value={formik.values.issue_date}
-                        onChange={formik.setFieldValue}
-                        error={formik.touched.issue_date && Boolean(formik.errors.issue_date)}
-                        helperText={formik.touched.issue_date && formik.errors.issue_date}
-                    />
-                    <DatePickerForm
-                        label={'Maturity Date'}
-                        name='maturity_date'
-                        value={formik.values.maturity_date}
-                        onChange={formik.setFieldValue}
-                        error={formik.touched.maturity_date && Boolean(formik.errors.maturity_date)}
-                        helperText={formik.touched.maturity_date && formik.errors.maturity_date}
-                        minDate={formik.values.issue_date}
-                    />
+                    <Controller
+                        name='issuer'
+                        control={control}
+                        render={( {field} ) => (
+                            <SelectForm 
+                                label={'Issuer'} 
+                                options={issuers}
+                                name={field.name} 
+                                value={field.value}
+                                onChange={field.onChange}
+                                onBlur={field.onBlur}
+                                error={Boolean(errors.issuer)}
+                                helperText={errors.issuer?.message}
+                            />
+                        )}
+                    >
+                    </Controller>
+                    <Controller
+                        name="bond_type"
+                        control={control}
+                        render={( {field} ) => (
+                            <SelectForm 
+                                label={'Bond Type'}
+                                options={meta.bond_types}
+                                name={field.name} 
+                                value={field.value}
+                                onChange={field.onChange}
+                                onBlur={field.onBlur}
+                                error={Boolean(errors.bond_type)}
+                                helperText={errors.bond_type?.message}
+                            />
+                        )}
+                    >
+                    </Controller>
+                    <Controller
+                        name="face_value"
+                        control={control}
+                        render={( {field} ) => (
+                            <TextForm 
+                                label='Face Value'
+                                name={field.name}
+                                value={field.value}
+                                onChange={field.onChange}
+                                onBlur={field.onBlur}
+                                error={Boolean(errors.face_value)}
+                                helperText={errors.face_value?.message}
+                            />
+                        )}
+                    >
+                    </Controller>
+                    <Controller
+                        name="coupon_rate"
+                        control={control}
+                        render={( {field} ) => (
+                            <TextForm 
+                                label='Coupon Rate'
+                                name={field.name}
+                                value={field.value}
+                                onChange={field.onChange}
+                                onBlur={field.onBlur}
+                                error={Boolean(errors.coupon_rate)}
+                                helperText={errors.coupon_rate?.message}
+                            />
+                        )}
+                    >
+                    </Controller>
+                    <Controller
+                        name="issue_date"
+                        control={control}
+                        render={( {field} ) => (
+                            <DatePickerForm
+                                label={'Issue Date'}
+                                name={field.name}
+                                value={field.value}
+                                onChange={field.onChange}
+                                error={Boolean(errors.issue_date)}
+                                helperText={errors.issue_date?.message}
+                            />
+                        )}
+                    >
+                    </Controller>
+                    <Controller
+                        name="maturity_date"
+                        control={control}
+                        render={( {field} ) => (
+                            <DatePickerForm
+                                label='Maturity Date'
+                                name={field.name}
+                                value={field.value}
+                                onChange={field.onChange}
+                                error={Boolean(errors.maturity_date)}
+                                helperText={errors.maturity_date?.message}
+                                minDate={issueDate}
+                            />
+                        )}
+                    >
+                    </Controller>
                     <Box sx={{ gridColumn: { md: '1 / -1' } }}>
-                        <Button type="submit" variant="contained" fullWidth>Submit</Button>
+                        <Button type="submit" variant="contained" onClick={handleSubmit(onSubmit)} fullWidth>Submit</Button>
                     </Box>
                 </Box>
             </form>

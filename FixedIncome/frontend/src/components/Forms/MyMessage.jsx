@@ -6,7 +6,7 @@ export default function MyMessage({messageText, messageColor}) {
     <Box
       sx={{
         width:'100%',
-        height:'40px',
+        maxHeight:'100px',
         color:'white',
         marginBottom:'20px',
         padding:'10px',
