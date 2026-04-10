@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 // Third-party libraries
-import dayjs from 'dayjs';
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -16,7 +15,8 @@ import {
   Typography,
   Menu,
   MenuItem,
-  ListItemIcon
+  ListItemIcon,
+  Popover
 } from '@mui/material';
 
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -30,6 +30,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import ArticleIcon from '@mui/icons-material/Article';
 import DatasetIcon from '@mui/icons-material/Dataset';
+import FilterListAltIcon from '@mui/icons-material/FilterListAlt';
 
 // Local modules
 import AxiosInstance from './Axios';
@@ -75,8 +76,18 @@ const TableView = () => {
   const handleExportMenuClick = (event) => setExportAnchorEl(event.currentTarget);
   const handleExportMenuClose = () => setExportAnchorEl(null);
 
+  {/* ---- Date Filters (issue_date, maturity_date) ---- */}
+  const [dateFilterAnchorEl, setDateFilterAnchorEl] = useState(null);
+  const openDateFilterPopover = Boolean(dateFilterAnchorEl);
+
+  const handleDateFilterClick = (event) => setDateFilterAnchorEl(event.currentTarget);
+  const handleDateFilterClose = () => setDateFilterAnchorEl(null);
+
+  const isFilterActive = Object.values(dateFilters).some(val => val !== null);
+
   //if you want to avoid useEffect, look at the React Query example instead
   useEffect(() => {
+    console.log(dateFilters);
     const fetchData = async () => {
       if (!data.length) {
         setIsLoading(true);
@@ -348,15 +359,43 @@ const TableView = () => {
 
           </Menu>
 
-         <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Issue Date:</Typography>
-          <DatePicker label="From" value={dateFilters.issue_date_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
-          <DatePicker label="To"   value={dateFilters.issue_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
-          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Maturity Date:</Typography>
-          <DatePicker label="From" value={dateFilters.maturity_date_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, maturity_date_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
-          <DatePicker label="To"   value={dateFilters.maturity_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, maturity_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
-          <Button variant="outlined" size="small" onClick={() => setDateFilters({ issue_date_gte: null, issue_date_lte: null, maturity_date_gte: null, maturity_date_lte: null })}>
-            Clear Dates
+          {/* ---------------- Date Filters ---------------- */}
+          <Button
+            variant={isFilterActive? "contained" : "outlined"}
+            size="small"
+            startIcon={<FilterListAltIcon/>}
+            onClick={handleDateFilterClick}
+          >
+            Date Filters {isFilterActive? "(Active)": ""}
           </Button>
+          <Popover
+            open={openDateFilterPopover}
+            anchorEl={dateFilterAnchorEl}
+            onClose={handleDateFilterClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          >
+            <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Issue Date:</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <DatePicker label="From" value={dateFilters.issue_date_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+                <DatePicker label="To"   value={dateFilters.issue_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+              </Box>
+
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Maturity Date:</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <DatePicker label="From" value={dateFilters.maturity_date_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, maturity_date_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+                <DatePicker label="To"   value={dateFilters.maturity_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, maturity_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+              </Box>
+
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                <Button variant="outlined" size="small" onClick={() => setDateFilters({ issue_date_gte: null, issue_date_lte: null, maturity_date_gte: null, maturity_date_lte: null })}>
+                  Clear Dates
+                </Button>
+              </Box>
+            </Box>
+          </Popover>
+
         </Box>
       </LocalizationProvider>
     ),
@@ -390,6 +429,10 @@ const TableView = () => {
         },
       },
     },
+    // {/* ---- show/hide filter icon change ---- */}
+    icons: {
+      FilterListIcon: FilterListAltIcon
+    }
   });
 
   return <MaterialReactTable table={table} />;
