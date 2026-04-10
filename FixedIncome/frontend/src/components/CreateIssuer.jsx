@@ -6,10 +6,18 @@ import Button from '@mui/material/Button';
 import TextForm from './Forms/TextForm';
 import SelectForm from './Forms/SelectForm';
 import { getData } from 'country-list';
-import { useFormik } from 'formik';
 import * as yup from 'yup'
 import MyMessage from './Forms/MyMessage';
 import { useNavigate } from 'react-router';
+import { useForm, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup';
+
+const fieldLabels = {
+    name: "Name",
+    country: "Country",
+    industry: "Industry",
+    credit_rating: "Credit Rating"
+};
 
 const CreateIssuer = () => {
     const [meta, setMeta] = useState(null)
@@ -32,46 +40,70 @@ const CreateIssuer = () => {
             .string()
             .required('Required field')
     })
-    const formik = useFormik({
-        initialValues: {
-            name:'',
-            country:'',
-            industry:'',
-            credit_rating:''
-        },
 
-        validationSchema: ValidationSchema,
-
-        onSubmit: (values)=>{
-            AxiosInstance.post('issuers/', values)
-            .then(()=>{
-                setMessage(
-                    <MyMessage
-                        messageText={"Successfully submitted data"}
-                        messageColor={"green"}
-                    />
-                )
-                setTimeout(()=>{
-                    navigate('/')
-                },2000)
-            })
-            .catch((error)=>{
-                const data = error.response?.data
-                const errorText = data
-                    ? Object.entries(data)
-                        .map(([field, msgs]) => `${field}: ${msgs[0]}`)
-                        .join(', ')
-                    : "Something went wrong, please try again"
-                setMessage(
-                    <MyMessage
-                        messageText={errorText || "Something went wrong, please try again"}
-                        messageColor={"red"}
-                    />
-                )
-            })
-        }
+    const { handleSubmit, control, formState: {errors} } = useForm({
+        resolver: yupResolver(ValidationSchema)
     })
 
+    const onSubmit = (values) => {
+        AxiosInstance.post('issuers/', values)
+        .then(()=> {
+            setMessage(
+                <MyMessage
+                    messageText={"Successfully submitted data"}
+                    messageColor={"green"}
+                />
+            )
+            setTimeout(()=>{
+                navigate('/')
+            },2000)
+        })
+        .catch((error)=>{
+            const data = error.response?.data
+            const errorText = Object.entries(data)
+                              .map(( [k, v] ) => `${fieldLabels[k]}: ${v[0]}`)
+                              .join('\n')
+            console.log(errorText)
+
+            setMessage(
+                <MyMessage
+                    messageText={errorText || "Something went wrong. Please try again later."}
+                    messageColor={"red"}
+                />
+            )
+        })
+    }
+
+    //     onSubmit: (values)=>{
+    //         AxiosInstance.post('issuers/', values)
+    //         .then(()=>{
+    //             setMessage(
+    //                 <MyMessage
+    //                     messageText={"Successfully submitted data"}
+    //                     messageColor={"green"}
+    //                 />
+    //             )
+    //             setTimeout(()=>{
+    //                 navigate('/')
+    //             },2000)
+    //         })
+    //         .catch((error)=>{
+    //             const data = error.response?.data
+    //             const errorText = data
+    //                 ? Object.entries(data)
+    //                     .map(([field, msgs]) => `${field}: ${msgs[0]}`)
+    //                     .join(', ')
+    //                 : "Something went wrong, please try again"
+    //             setMessage(
+    //                 <MyMessage
+    //                     messageText={errorText || "Something went wrong, please try again"}
+    //                     messageColor={"red"}
+    //                 />
+    //             )
+    //         })
+    //     }
+    // })
+    //
     useEffect(()=>{
         AxiosInstance.get('api/meta/').then((res)=>{
             setMeta(res.data)
@@ -82,14 +114,14 @@ const CreateIssuer = () => {
 
     return (
         <div>
-            <form onSubmit={formik.handleSubmit}>
-                <Box className={"TopBar"}>
-                    <AddBoxIcon/>
-                    <Typography sx={{marginLeft:'15px'}}>Create Issuer</Typography>
-                </Box>
-                
-                {message}
+            <Box className={"TopBar"}>
+                <AddBoxIcon/>
+                <Typography sx={{marginLeft:'15px'}}>Create Issuer</Typography>
+            </Box>
+            
+            {message}
 
+            <form>
                <Box sx={{
                     display: 'grid',
                     gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
@@ -97,36 +129,76 @@ const CreateIssuer = () => {
                     padding: '15px',
                     boxShadow: 'rgba(100,100,111,0.2) 0px 7px 29px 0px',
                 }}>
-                    <TextForm 
-                        label={'Name'} 
-                        name='name' value={formik.values.name}
-                        onChange={formik.handleChange} onBlur={formik.handleBlur}
-                        error={formik.touched.name && Boolean(formik.errors.name)}
-                        helperText={formik.touched.name && formik.errors.name}
-                    />                                          
-                    <SelectForm 
-                        label={'Country'} options={getData()} valueKey='code' 
-                        name='country' value={formik.values.country}
-                        onChange={formik.handleChange} onBlur={formik.handleBlur}
-                        error={formik.touched.country && Boolean(formik.errors.country)}
-                        helperText={formik.touched.country && formik.errors.country}
-                    /> 
-                    <SelectForm 
-                        label={'Industry'} options={meta.industries} 
-                        name='industry' value={formik.values.industry}
-                        onChange={formik.handleChange} onBlur={formik.handleBlur}
-                            error={formik.touched.industry && Boolean(formik.errors.industry)}
-                        helperText={formik.touched.industry && formik.errors.industry}
-                    />          
-                    <SelectForm 
-                        label={'Credit Rating'} options={meta.credit_ratings} 
-                        name='credit_rating' value={formik.values.credit_rating}
-                        onChange={formik.handleChange} onBlur={formik.handleBlur}
-                        error={formik.touched.credit_rating && Boolean(formik.errors.credit_rating)}
-                        helperText={formik.touched.credit_rating && formik.errors.credit_rating}
-                    /> 
+                    <Controller
+                        name="name"
+                        control={control}
+                        render={( {field} ) => (
+                            <TextForm 
+                                label='Name'
+                                name={field.name}
+                                value={field.value}
+                                onChange={field.onChange} 
+                                onBlur={field.onBlur}
+                                error={Boolean(errors.name)}
+                                helperText={errors.name?.message}
+                            />        
+                        )}
+                    >
+                    </Controller>
+                    <Controller
+                        name="country"
+                        control={control}
+                        render={( {field} ) => (
+                            <SelectForm 
+                                label={'Country'} 
+                                options={getData()} 
+                                valueKey='code' 
+                                name={field.name}
+                                value={field.value}
+                                onChange={field.onChange} 
+                                onBlur={field.onBlur}
+                                error={Boolean(errors.country)}
+                                helperText={errors.country?.message}
+                            /> 
+                        )}
+                    >
+                    </Controller>
+                    <Controller
+                        name="industry"
+                        control={control}
+                        render={( {field} ) => (
+                            <SelectForm 
+                                label={'Industry'} 
+                                options={meta.industries} 
+                                name={field.name}
+                                value={field.value}
+                                onChange={field.onChange} 
+                                onBlur={field.onBlur}
+                                error={Boolean(errors.industry)}
+                                helperText={errors.industry?.message}
+                            /> 
+                        )}
+                    >     
+                    </Controller>
+                    <Controller
+                        name="credit_rating"
+                        control={control}
+                        render={( {field} ) => (
+                            <SelectForm 
+                                label={'Credit Rating'} 
+                                options={meta.credit_ratings} 
+                                name={field.name}
+                                value={field.value}
+                                onChange={field.onChange} 
+                                onBlur={field.onBlur}
+                                error={Boolean(errors.credit_rating)}
+                                helperText={errors.credit_rating?.message}
+                            /> 
+                        )}
+                    >
+                    </Controller>
                     <Box sx={{ gridColumn: { md: '1 / -1' } }}>
-                        <Button type="submit" variant="contained" fullWidth>Submit</Button>
+                        <Button type="submit" variant="contained" onClick={handleSubmit(onSubmit)} fullWidth>Submit</Button>
                     </Box>
                 </Box>
             </form>
