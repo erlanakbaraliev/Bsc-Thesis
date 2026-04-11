@@ -20,22 +20,11 @@ class BondSerializer(serializers.ModelSerializer):
     issuer_name = serializers.CharField(source="issuer.name", read_only=True)
     issuer_country = serializers.CharField(source="issuer.country", read_only=True)
     credit_rating = serializers.CharField(source="issuer.credit_rating", read_only=True)
+    issuer_industry = serializers.CharField(source="issuer.industry", read_only=True)
 
     class Meta:
         model = Bond
-        fields = [
-            "id",
-            "isin",
-            "issuer_country",
-            "issuer",
-            "issuer_name",
-            "credit_rating",
-            "bond_type",
-            "face_value",
-            "coupon_rate",
-            "issue_date",
-            "maturity_date",
-        ]
+        fields = "__all__"
 
 
 class TransactionSerializer(serializers.ModelSerializer):

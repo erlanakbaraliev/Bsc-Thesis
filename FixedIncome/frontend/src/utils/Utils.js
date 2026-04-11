@@ -3,6 +3,7 @@ const fieldMap = {
   issuer_country: 'issuer__country',
   issuer_name: 'issuer__name',
   credit_rating: 'issuer__credit_rating',
+  issuer_industry: 'issuer__industry'
 }
 
 export const getOrdering = (sorting) => {
@@ -13,7 +14,7 @@ export const getOrdering = (sorting) => {
 }
 
 // ------------- Filtering ---------------
-const textFields = ['isin', 'issuer__country', 'issuer__name', 'bond_type'];
+const textFields = ['isin', 'issuer__country', 'issuer__name', 'bond_type', 'issuer__industry'];
 
 export const getColumnFilters = (columnFilters) => {
   const filters = columnFilters.reduce((acc, col) => {

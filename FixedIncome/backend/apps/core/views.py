@@ -1,16 +1,16 @@
 import csv
 import io
 
+import rest_framework.parsers
 from django.contrib.auth.models import User
-from django.http import StreamingHttpResponse
 from django.db import transaction
+from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.views import Response
 from rest_framework.response import Response
-import rest_framework.parsers
+from rest_framework.views import Response
 
 from .models import Bond, Issuer, Transaction
 from .serializers import (
@@ -51,9 +51,10 @@ class BondViewSet(viewsets.ModelViewSet):
         "coupon_rate": ["exact", "gte", "lte"],
         "issue_date": ["exact", "gte", "lte"],
         "maturity_date": ["exact", "gte", "lte", "icontains"],
-        "issuer__name": ["exact", "icontains", "icontains"],
+        "issuer__name": ["exact", "icontains"],
         "issuer__country": ["exact", "icontains"],
         "issuer__credit_rating": ["exact"],
+        "issuer__industry": ["exact", "icontains"],
     }
     ordering = ["id"]  # Default order column
     search_fields = ["isin"]
@@ -67,6 +68,7 @@ class BondViewSet(viewsets.ModelViewSet):
         "issuer__name",
         "issuer__country",
         "issuer__credit_rating",
+        "issuer__industry",
     ]
 
     @action(detail=False, methods=["delete"])
@@ -117,18 +119,22 @@ class BondViewSet(viewsets.ModelViewSet):
         response = StreamingHttpResponse(row_generator(), content_type="text/csv")
         response["Content-Disposition"] = 'attachment; filename="bonds_export.csv"'
         return response
-    
-    @action(detail=False, methods=['post'], parser_classes=[rest_framework.parsers.MultiPartParser])
+
+    @action(
+        detail=False,
+        methods=["post"],
+        parser_classes=[rest_framework.parsers.MultiPartParser],
+    )
     def import_preview(self, request):
-        file_obj = request.FILES.get('file')
+        file_obj = request.FILES.get("file")
         if not file_obj:
             return Response({"error": "No file uploaded"}, status=400)
 
         try:
-            decoded_file = file_obj.read().decode('utf-8')
+            decoded_file = file_obj.read().decode("utf-8")
             reader = csv.DictReader(io.StringIO(decoded_file))
             # Extract just the ISINs from the CSV to check them
-            csv_isins = [row.get('ISIN') for row in reader if row.get('ISIN')]
+            csv_isins = [row.get("ISIN") for row in reader if row.get("ISIN")]
         except Exception as e:
             return Response({"error": f"Invalid CSV: {str(e)}"}, status=400)
 
@@ -137,21 +143,24 @@ class BondViewSet(viewsets.ModelViewSet):
         existing_count = Bond.objects.filter(isin__in=csv_isins).count()
         new_count = total_rows - existing_count
 
-        return Response({
-            "total": total_rows,
-            "new": new_count,
-            "existing": existing_count
-        }, status=200)
+        return Response(
+            {"total": total_rows, "new": new_count, "existing": existing_count},
+            status=200,
+        )
 
     # 2. THE ACTUAL IMPORT ENDPOINT (Level 2 Upsert)
-    @action(detail=False, methods=['post'], parser_classes=[rest_framework.parsers.MultiPartParser])
+    @action(
+        detail=False,
+        methods=["post"],
+        parser_classes=[rest_framework.parsers.MultiPartParser],
+    )
     def import_csv(self, request):
-        file_obj = request.FILES.get('file')
+        file_obj = request.FILES.get("file")
         if not file_obj:
             return Response({"error": "No file uploaded"}, status=400)
 
         try:
-            decoded_file = file_obj.read().decode('utf-8')
+            decoded_file = file_obj.read().decode("utf-8")
             reader = csv.DictReader(io.StringIO(decoded_file))
         except Exception as e:
             return Response({"error": f"Invalid CSV: {str(e)}"}, status=400)
@@ -161,27 +170,27 @@ class BondViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
             for row in reader:
-                issuer_name = row.get('Issuer')
-                if not issuer_name or not row.get('ISIN'):
-                    continue # Skip empty or highly invalid rows
-                
+                issuer_name = row.get("Issuer")
+                if not issuer_name or not row.get("ISIN"):
+                    continue  # Skip empty or highly invalid rows
+
                 if issuer_name not in existing_issuers:
                     new_issuer = Issuer.objects.create(
-                        name=issuer_name, 
-                        country=row.get('Country', 'Unknown'),
-                        industry="Other", # -- NOTE:
-                        credit_rating=row.get('Rating')
+                        name=issuer_name,
+                        country=row.get("Country", "Unknown"),
+                        industry="Other",  # -- NOTE:
+                        credit_rating=row.get("Rating"),
                     )
                     existing_issuers[issuer_name] = new_issuer
 
                 bond = Bond(
-                    isin=row.get('ISIN'),
+                    isin=row.get("ISIN"),
                     issuer=existing_issuers[issuer_name],
-                    bond_type=row.get('Type', 'CORP'),
-                    face_value=row.get('Face Value', 1000),
-                    coupon_rate=row.get('Coupon', 0),
-                    issue_date=row.get('Issue Date'),
-                    maturity_date=row.get('Maturity Date')
+                    bond_type=row.get("Type", "CORP"),
+                    face_value=row.get("Face Value", 1000),
+                    coupon_rate=row.get("Coupon", 0),
+                    issue_date=row.get("Issue Date"),
+                    maturity_date=row.get("Maturity Date"),
                 )
                 new_bonds.append(bond)
 
@@ -189,16 +198,17 @@ class BondViewSet(viewsets.ModelViewSet):
             Bond.objects.bulk_create(
                 new_bonds,
                 update_conflicts=True,
-                unique_fields=['isin'], # If ISIN matches...
-                update_fields=[         # ...update these fields instead of failing
-                    'bond_type', 'face_value', 'coupon_rate', 
-                    'issue_date', 'maturity_date'
-                ] 
+                unique_fields=["isin"],  # If ISIN matches...
+                update_fields=[  # ...update these fields instead of failing
+                    "bond_type",
+                    "face_value",
+                    "coupon_rate",
+                    "issue_date",
+                    "maturity_date",
+                ],
             )
 
-        return Response({
-            "message": "Upload complete!"
-        }, status=201)
+        return Response({"message": "Upload complete!"}, status=201)
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
