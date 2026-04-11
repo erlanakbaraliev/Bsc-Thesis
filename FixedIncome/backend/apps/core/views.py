@@ -12,6 +12,8 @@ from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.views import Response
 
+from apps.core.utils.utils import parse_date
+
 from .models import Bond, Issuer, Transaction
 from .serializers import (
     BondSerializer,
@@ -36,6 +38,31 @@ class IssuerViewSet(viewsets.ModelViewSet):
 class Echo:
     def write(self, value):
         return value
+
+
+RATING_MAP = {
+    "Prime (AAA)": "AAA",
+    "High Grade (AA)": "AA",
+    "Upper Medium Grade (A)": "A",
+    "Lower Medium Grade (BBB)": "BBB",
+    "Non-Investment Grade (BB)": "BB",
+    "Highly Speculative (B)": "C",
+    "Substantial Risk (CCC)": "C",
+}
+
+BOND_TYPE_MAP = {
+    "Corporate": "CORP",
+    "Government": "GOV",
+    "Municipal": "MUNI",
+    "Convertible": "CORP",
+    "Zero Coupon": "CORP",
+    "Floating Rate": "CORP",
+    "Callable": "CORP",
+}
+
+INDUSTRY_MAP = {
+    "Telecom": "Communication Services",
+}
 
 
 class BondViewSet(viewsets.ModelViewSet):
@@ -90,6 +117,7 @@ class BondViewSet(viewsets.ModelViewSet):
                 [
                     "ISIN",
                     "Issuer",
+                    "Industry",
                     "Country",
                     "Rating",
                     "Type",
@@ -106,6 +134,7 @@ class BondViewSet(viewsets.ModelViewSet):
                     [
                         bond.isin,
                         bond.issuer.name,
+                        bond.issuer.industry,
                         bond.issuer.country,
                         bond.issuer.get_credit_rating_display(),  # Use display name
                         bond.get_bond_type_display(),
@@ -172,25 +201,39 @@ class BondViewSet(viewsets.ModelViewSet):
             for row in reader:
                 issuer_name = row.get("Issuer")
                 if not issuer_name or not row.get("ISIN"):
-                    continue  # Skip empty or highly invalid rows
+                    continue
+
+                raw_rating = row.get("Rating", "BBB")
+                raw_type = row.get("Type", "Corporate")
+                raw_industry = row.get("Industry", "Other")
+
+                rating = RATING_MAP.get(raw_rating, "BBB")
+                bond_type = BOND_TYPE_MAP.get(raw_type, "CORP")
+                industry = INDUSTRY_MAP.get(raw_industry, raw_industry)
 
                 if issuer_name not in existing_issuers:
                     new_issuer = Issuer.objects.create(
                         name=issuer_name,
                         country=row.get("Country", "Unknown"),
-                        industry="Other",  # -- NOTE:
-                        credit_rating=row.get("Rating"),
+                        industry=industry,
+                        credit_rating=rating,
                     )
                     existing_issuers[issuer_name] = new_issuer
+
+                try:
+                    issue_date = parse_date(row.get("Issue Date", ""))
+                    maturity_date = parse_date(row.get("Maturity Date", ""))
+                except ValueError:
+                    continue  # skip rows with bad dates instead of crashing
 
                 bond = Bond(
                     isin=row.get("ISIN"),
                     issuer=existing_issuers[issuer_name],
-                    bond_type=row.get("Type", "CORP"),
+                    bond_type=bond_type,
                     face_value=row.get("Face Value", 1000),
                     coupon_rate=row.get("Coupon", 0),
-                    issue_date=row.get("Issue Date"),
-                    maturity_date=row.get("Maturity Date"),
+                    issue_date=issue_date,
+                    maturity_date=maturity_date,
                 )
                 new_bonds.append(bond)
 

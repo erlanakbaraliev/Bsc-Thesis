@@ -71,7 +71,7 @@ const TableView = () => {
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
-    pageSize: 1000,
+    pageSize: 100,
   });
 
   // export nenu dropdown state
@@ -461,6 +461,31 @@ const TableView = () => {
     muiPaginationProps: {
       rowsPerPageOptions: [5, 25, 50, 100, 1000, 5000, 10000],
     },
+    enableRowVirtualization: true,
+
+    muiTableContainerProps: {
+      sx: {
+        maxHeight: '70vh',
+
+        '&::-webkit-scrollbar': {
+          height: 8,
+        },
+
+        '&::-webkit-scrollbar-track': {
+          background: '#ffffff',
+        },
+
+        '&::-webkit-scrollbar-thumb': {
+          background: '#d0d0d0',
+          borderRadius: '4px',
+        },
+
+        '&::-webkit-scrollbar-thumb:hover': {
+          background: '#b0b0b0',
+        },
+      },
+    },
+
   });
 
   return (
