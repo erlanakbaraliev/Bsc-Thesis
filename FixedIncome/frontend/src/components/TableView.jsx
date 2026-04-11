@@ -35,11 +35,13 @@ import DatasetIcon from '@mui/icons-material/Dataset';
 import FilterListAltIcon from '@mui/icons-material/FilterListAlt';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CloseIcon from '@mui/icons-material/Close';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 
 // Local modules
 import AxiosInstance from './Axios';
 import EditBondModal from './Forms/EditBondModal';
 import CsvUploader from './CsvUploader.jsx';
+import SentimentMapper from './SentimentMapper'
 
 // Local Utils
 import { getOrdering, getColumnFilters } from '../utils/Utils.js'
@@ -92,6 +94,10 @@ const TableView = () => {
 
   {/* ---- CsvUploader ---- */}
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+
+  {/* ---- Sentiment Mapper ---- */}
+  const [sentimentIssuer, setSentimentIssuer] = useState('');
+  const [sentimentOpen,   setSentimentOpen]   = useState(false);
 
   //if you want to avoid useEffect, look at the React Query example instead
   useEffect(() => {
@@ -429,15 +435,32 @@ const TableView = () => {
     enableRowActions: true,
     enableColumnPinning: true,
     renderRowActions: ({ row, table }) => (
-      <Tooltip title='Edit Bond'>
-        <IconButton
-          onClick={() => {
-            table.setEditingRow(row);
-          }}
-        >
-          <EditIcon />
-        </IconButton>
-      </Tooltip>
+      <>
+        <Box sx={{ display: 'flex' }}>
+          <Tooltip title="Edit Bond">
+            <IconButton onClick={() => table.setEditingRow(row)}>
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Sentiment Analysis">
+            <IconButton onClick={() => {
+              setSentimentIssuer(row.original.issuer_name);
+              setSentimentOpen(true);
+            }}>
+              <TrendingUpIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        <Tooltip title='Edit Bond'>
+          <IconButton
+            onClick={() => {
+              table.setEditingRow(row);
+            }}
+          >
+            <EditIcon />
+          </IconButton>
+        </Tooltip>
+      </>
     ),
     renderEditRowDialogContent: ({ row, table }) => (
       <EditBondModal row={row} table={table} onSaved={(bondId, newData) => setRefreshKey(prev => prev + 1) }/>
@@ -517,6 +540,22 @@ const TableView = () => {
               }} 
             />
           </Box>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={sentimentOpen}
+        onClose={() => setSentimentOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogContent>
+          <IconButton
+            onClick={() => setSentimentOpen(false)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <SentimentMapper defaultIssuer={sentimentIssuer} />
         </DialogContent>
       </Dialog>
     </>

@@ -22,6 +22,10 @@ from .serializers import (
     UserSerializer,
 )
 
+from django.core.cache import cache
+from .sentiment_service import score_headlines
+from .news_service import fetch_headlines
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("id")
@@ -252,6 +256,65 @@ class BondViewSet(viewsets.ModelViewSet):
             )
 
         return Response({"message": "Upload complete!"}, status=201)
+
+
+    @action(detail=False, methods=["get"])
+    def sentiment(self, request):
+        issuer_name = request.query_params.get("issuer", "").strip()
+        if not issuer_name:
+            return Response({"error": "issuer param required"}, status=400)
+
+        cache_key = f"sentiment:{issuer_name}"
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(cached)
+
+        # 1. Fetch headlines
+        headlines = fetch_headlines(issuer_name, days_back=30)
+        if not headlines:
+            return Response({"issuer": issuer_name, "data": [], "summary": {}})
+
+        # 2. Run FinBERT on the titles
+        texts   = [h["title"] for h in headlines]
+        scored  = score_headlines(texts)
+
+        # 3. Merge dates back in and bucket by day
+        from collections import defaultdict
+        daily: dict = defaultdict(lambda: {"positive": [], "negative": [], "neutral": [], "headlines": []})
+
+        for headline, score in zip(headlines, scored):
+            day = headline["published_at"]
+            daily[day]["positive"].append(score["positive"])
+            daily[day]["negative"].append(score["negative"])
+            daily[day]["neutral"].append(score["neutral"])
+            daily[day]["headlines"].append(score["text"])
+
+        # 4. Average per day
+        chart_data = sorted([
+            {
+                "date":      day,
+                "positive":  round(sum(v["positive"]) / len(v["positive"]), 3),
+                "negative":  round(sum(v["negative"]) / len(v["negative"]), 3),
+                "neutral":   round(sum(v["neutral"])  / len(v["neutral"]),  3),
+                "count":     len(v["headlines"]),
+                "headlines": v["headlines"][:5],   # cap tooltip content
+            }
+            for day, v in daily.items()
+        ], key=lambda x: x["date"])
+
+        # 5. Overall summary
+        all_pos = [s["positive"] for s in scored]
+        all_neg = [s["negative"] for s in scored]
+        summary = {
+            "total_headlines": len(scored),
+            "avg_positive":    round(sum(all_pos) / len(all_pos), 3),
+            "avg_negative":    round(sum(all_neg) / len(all_neg), 3),
+            "verdict":         "Bullish" if sum(all_pos) > sum(all_neg) else "Bearish",
+        }
+
+        payload = {"issuer": issuer_name, "data": chart_data, "summary": summary}
+        cache.set(cache_key, payload, timeout=60 * 60)  # cache 1 hour
+        return Response(payload)
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
