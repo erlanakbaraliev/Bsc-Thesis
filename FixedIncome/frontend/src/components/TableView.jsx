@@ -16,7 +16,9 @@ import {
   Menu,
   MenuItem,
   ListItemIcon,
-  Popover
+  Popover,
+  Dialog,
+  DialogContent
 } from '@mui/material';
 
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -31,10 +33,13 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import ArticleIcon from '@mui/icons-material/Article';
 import DatasetIcon from '@mui/icons-material/Dataset';
 import FilterListAltIcon from '@mui/icons-material/FilterListAlt';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import CloseIcon from '@mui/icons-material/Close';
 
 // Local modules
 import AxiosInstance from './Axios';
 import EditBondModal from './Forms/EditBondModal';
+import CsvUploader from './CsvUploader.jsx';
 
 // Local Utils
 import { getOrdering, getColumnFilters } from '../utils/Utils.js'
@@ -84,6 +89,9 @@ const TableView = () => {
   const handleDateFilterClose = () => setDateFilterAnchorEl(null);
 
   const isFilterActive = Object.values(dateFilters).some(val => val !== null);
+
+  {/* ---- CsvUploader ---- */}
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   //if you want to avoid useEffect, look at the React Query example instead
   useEffect(() => {
@@ -396,6 +404,17 @@ const TableView = () => {
             </Box>
           </Popover>
 
+          {/* ---- CsvUploader Button ---- */}
+          <Button
+            variant="contained"  
+            color="primary"
+            size="small"
+            startIcon={<CloudUploadIcon />}
+            onClick={() => setIsImportModalOpen(true)}
+          >
+            Import Bonds
+          </Button>
+
         </Box>
       </LocalizationProvider>
     ),
@@ -435,7 +454,39 @@ const TableView = () => {
     }
   });
 
-  return <MaterialReactTable table={table} />;
+  return (
+    <>
+      <MaterialReactTable table={table} />
+
+      <Dialog 
+        open={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogContent>
+          {/* Close button for the modal */}
+          <IconButton
+            aria-label="close"
+            onClick={() => setIsImportModalOpen(false)}
+            sx={{ position: 'absolute', right: 8, top: 8, color: 'grey.500' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          
+          {/* Your Uploader Component */}
+          <Box sx={{ mt: 2 }}>
+            <CsvUploader 
+              onSuccess={() => {
+                setRefreshKey(prev => prev + 1); // Refresh the table
+                setIsImportModalOpen(false);     // Close the modal automatically on success
+              }} 
+            />
+          </Box>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 };
 
 export default TableView;
