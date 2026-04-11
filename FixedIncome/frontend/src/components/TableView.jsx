@@ -71,7 +71,7 @@ const TableView = () => {
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 1000,
   });
 
   // export nenu dropdown state
@@ -104,6 +104,7 @@ const TableView = () => {
 
       const ordering = getOrdering(sorting)
       const filters = getColumnFilters(columnFilters)
+      console.log(ordering)
 
       try {
         const response = await AxiosInstance.get('bonds/', {
@@ -456,7 +457,10 @@ const TableView = () => {
     // {/* ---- show/hide filter icon change ---- */}
     icons: {
       FilterListIcon: FilterListAltIcon
-    }
+    },
+    muiPaginationProps: {
+      rowsPerPageOptions: [5, 25, 50, 100, 1000, 5000, 10000],
+    },
   });
 
   return (
