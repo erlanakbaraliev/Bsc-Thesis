@@ -47,9 +47,10 @@ class BondViewSet(viewsets.ModelViewSet):
         "coupon_rate": ["exact", "gte", "lte"],
         "issue_date": ["exact", "gte", "lte"],
         "maturity_date": ["exact", "gte", "lte", "icontains"],
-        "issuer__name": ["exact", "icontains", "icontains"],
+        "issuer__name": ["exact", "icontains"],
         "issuer__country": ["exact", "icontains"],
         "issuer__credit_rating": ["exact"],
+        "issuer__industry": ["exact", "icontains"],
     }
     ordering = ["id"]  # Default order column
     search_fields = ["isin"]
@@ -63,6 +64,7 @@ class BondViewSet(viewsets.ModelViewSet):
         "issuer__name",
         "issuer__country",
         "issuer__credit_rating",
+        "issuer__industry",
     ]
 
     @action(detail=False, methods=["delete"])
