@@ -87,7 +87,6 @@ const TableView = () => {
 
   //if you want to avoid useEffect, look at the React Query example instead
   useEffect(() => {
-    console.log(dateFilters);
     const fetchData = async () => {
       if (!data.length) {
         setIsLoading(true);
@@ -151,6 +150,12 @@ const TableView = () => {
         accessorKey: 'issuer_name',
         header: 'Issuer Name',
         minSize: 180,
+      },
+      {
+        accessorKey: 'issuer_industry',
+        header: 'Issuer Industry',
+        minSize: 130,
+        size: 130,
       },
       {
         accessorKey: 'credit_rating',
