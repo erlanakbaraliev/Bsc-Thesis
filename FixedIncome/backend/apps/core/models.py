@@ -2,7 +2,15 @@ from django.contrib.auth.models import User
 from django.db import models
 
 
-class Issuer(models.Model):
+class TimeStampedModel(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class Issuer(TimeStampedModel):
     # The company or government issueing the bond
     RATING_CHOICES = [
         ("AAA", "Prime (AAA)"),
@@ -40,7 +48,7 @@ class Issuer(models.Model):
         return self.name
 
 
-class Bond(models.Model):
+class Bond(TimeStampedModel):
     TYPE_CHOICES = [
         ("GOV", "Government"),
         ("CORP", "Corporate"),
@@ -82,7 +90,7 @@ class Transaction(models.Model):
     price = models.DecimalField(
         max_digits=15, decimal_places=2, help_text="Price per bond at transaction"
     )
-    transaction_date = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.action} {self.quantity} of {self.bond.isin}"
