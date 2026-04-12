@@ -1,10 +1,17 @@
 import csv
+import io
 
+import rest_framework
+import rest_framework.parsers
 from django.contrib.auth.models import User
 from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, viewsets
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import (
+    action,
+    api_view,
+    permission_classes,
+)
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import Response
 
@@ -119,6 +126,31 @@ class BondViewSet(viewsets.ModelViewSet):
         response = StreamingHttpResponse(row_generator(), content_type="text/csv")
         response["Content-Disposition"] = 'attachment; filename="bonds_export.csv"'
         return response
+
+    @action(
+        detail=False,
+        methods=["get"],
+        parser_classes=[rest_framework.parsers.MultiPartParser],
+    )
+    def import_preview(self, request):
+        file_obj = request.FILES.get("file")
+        if not file_obj:
+            return Response({"error": "No file uploaded"})
+
+        try:
+            decoded_file = file_obj.read().decode("utf-8")
+            reader = csv.DictReader(io.StringIO(decoded_file))
+            csv_isins = [r.get("ISIN") for r in reader if r.get("ISIN")]
+        except Exception as e:
+            return Response({"error": f"Invalid file: {str(e)}"}, status=400)
+
+        total_rows = len(csv_isins)
+        existing_count = Bond.objects.filter(isin__in=csv_isins).count()
+        new_rows = total_rows - existing_count
+
+        return Response(
+            {"total": total_rows, "new": new_rows, "existing": existing_count}
+        )
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
