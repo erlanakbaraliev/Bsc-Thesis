@@ -39,7 +39,7 @@ import EditBondModal from './Forms/EditBondModal';
 // Local Utils
 import { getOrdering, getColumnFilters } from '../utils/Utils.js'
 import { handleExportRows } from '../utils/CsvExportUtils.js';
-import { formatDateParam } from '../utils/DateUtils.js';
+import { formatDateParam, formatDateTimeParam, formatDateTimeParamAPICall } from '../utils/DateUtils.js';
 import { API_ENDPOINTS } from '../config/Api.js';
 
 
@@ -62,6 +62,10 @@ const TableView = () => {
     issue_date_lte: null,
     maturity_date_gte: null,
     maturity_date_lte: null,
+    created_at_lte: null,
+    created_at_gte: null,
+    updated_at_lte: null,
+    updated_at_gte: null
   });
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({
@@ -107,7 +111,11 @@ const TableView = () => {
             issue_date__gte:    formatDateParam(dateFilters.issue_date_gte),
             issue_date__lte:    formatDateParam(dateFilters.issue_date_lte),
             maturity_date__gte: formatDateParam(dateFilters.maturity_date_gte),
-            maturity_date__lte: formatDateParam(dateFilters.maturity_date_lte)
+            maturity_date__lte: formatDateParam(dateFilters.maturity_date_lte),
+            created_at__gte:    formatDateTimeParamAPICall(dateFilters.created_at_gte),
+            created_at__lte:    formatDateTimeParamAPICall(dateFilters.created_at_lte),
+            updated_at__gte:     formatDateTimeParamAPICall(dateFilters.updated_at_gte),
+            updated_at__lte:     formatDateTimeParamAPICall(dateFilters.updated_at_lte),
           }
         });
         setData(response.data.results);
@@ -178,8 +186,8 @@ const TableView = () => {
       {
         accessorKey: 'coupon_rate',
         header: 'Coupon Rate',
-        minSize: 100,
-        size: 120,
+        minSize: 80,
+        size: 100,
       },
       {
         accessorKey: 'issue_date',
@@ -194,6 +202,24 @@ const TableView = () => {
         minSize: 120,
         size: 130,
         enableColumnFilter: false,
+      },
+      {
+        accessorKey: 'created_at',
+        header: 'Created at',
+        minSize: 120,
+        size: 130,
+        enableColumnFilter: false,
+        Cell: ({ cell }) =>
+          formatDateTimeParam(cell.getValue())
+      },
+      {
+        accessorKey: 'updated_at',
+        header: 'Updated at',
+        minSize: 120,
+        size: 130,
+        enableColumnFilter: false,
+        Cell: ({ cell }) =>
+          formatDateTimeParam(cell.getValue())
       },
     ],
     [],
@@ -245,7 +271,7 @@ const TableView = () => {
       showColumnFilters: false,
       density: 'compact',
       columnPinning: { right: ['mrt-row-actions'] },
-      columnVisibility: {issuer_country: false},
+      columnVisibility: {issuer_country: false, created_at: false, updated_at: false},
     },
     manualFiltering: true,
     manualPagination: true,
@@ -393,8 +419,32 @@ const TableView = () => {
                 <DatePicker label="To"   value={dateFilters.maturity_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, maturity_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
               </Box>
 
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Creation Date:</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <DatePicker label="From" value={dateFilters.created_at_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, created_at_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+                <DatePicker label="To" value={dateFilters.created_at_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, created_at_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+              </Box>
+
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Update:</Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <DatePicker label="From" value={dateFilters.updated_at_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, updated_at_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+                <DatePicker label="To" value={dateFilters.updated_at_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, updated_at_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+              </Box>
+
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                <Button variant="outlined" size="small" onClick={() => setDateFilters({ issue_date_gte: null, issue_date_lte: null, maturity_date_gte: null, maturity_date_lte: null })}>
+                <Button 
+                  variant="outlined" 
+                  size="small" 
+                  onClick={() => {
+                    setDateFilters(
+                      { 
+                        issue_date_gte: null, issue_date_lte: null, 
+                        maturity_date_gte: null, maturity_date_lte: null, 
+                        created_at_gte: null, created_at_lte: null,
+                        updated_at_gte: null, updated_at_lte: null
+                      })
+                    }
+                  }>
                   Clear Dates
                 </Button>
               </Box>

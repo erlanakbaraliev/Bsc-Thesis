@@ -37,6 +37,8 @@ class BondSerializer(serializers.ModelSerializer):
             "coupon_rate",
             "issue_date",
             "maturity_date",
+            "created_at",
+            "updated_at",
         ]
 
 
