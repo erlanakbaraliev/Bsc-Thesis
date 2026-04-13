@@ -1,9 +1,9 @@
 import csv
-import io
 
 import rest_framework
 import rest_framework.parsers
 from django.contrib.auth.models import User
+from django.db import transaction
 from django.http import StreamingHttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, viewsets
@@ -14,6 +14,8 @@ from rest_framework.decorators import (
 )
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.views import Response
+
+from apps.core.utils.utils import decode_csv_file, parse_date
 
 from .models import Bond, Issuer, Transaction
 from .serializers import (
@@ -39,6 +41,44 @@ class IssuerViewSet(viewsets.ModelViewSet):
 class Echo:
     def write(self, value):
         return value
+
+
+INDUSTRY_MAP = {
+    "Telecom": "Communication Services",
+    "Energy": "Energy",
+    "Materials": "Materials",
+    "Industrial": "Industrials",
+    "Financials": "Financials",
+    "Technology": "Technology",
+    "Healthcare": "Healthcare",
+    "Utilities": "Utilities",
+    "Government": "Government",
+    "Real Estate": "Real Estate",
+    "Consumer Discretionary": "Consumer Discretionary",
+    "Consumer Staples": "Consumer Staples",
+    "Communication Services": "Communication Services",
+    "Other": "Other",
+}
+
+RATING_MAP = {
+    "Prime (AAA)": "AAA",
+    "High Grade (AA)": "AA",
+    "Upper Medium Grade (A)": "A",
+    "Lower Medium Grade (BBB)": "BBB",
+    "Non-Investment Grade (BB)": "BB",
+    "Highly Speculative (B)": "C",
+    "Substantial Risk (CCC)": "C",
+}
+
+BOND_TYPE_MAP = {
+    "Corporate": "CORP",
+    "Government": "GOV",
+    "Municipal": "MUNI",
+    "Convertible": "CORP",
+    "Zero Coupon": "CORP",
+    "Floating Rate": "CORP",
+    "Callable": "CORP",
+}
 
 
 class BondViewSet(viewsets.ModelViewSet):
@@ -129,20 +169,23 @@ class BondViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=False,
-        methods=["get"],
+        methods=["post"],
         parser_classes=[rest_framework.parsers.MultiPartParser],
     )
     def import_preview(self, request):
         file_obj = request.FILES.get("file")
         if not file_obj:
             return Response({"error": "No file uploaded"})
+        elif not file_obj.name.endswith(".csv"):
+            return Response({"error": "File must be .csv"}, status=400)
 
         try:
-            decoded_file = file_obj.read().decode("utf-8")
-            reader = csv.DictReader(io.StringIO(decoded_file))
+            reader = decode_csv_file(file_obj)
             csv_isins = [r.get("ISIN") for r in reader if r.get("ISIN")]
+            for r in reader:
+                print(r)
         except Exception as e:
-            return Response({"error": f"Invalid file: {str(e)}"}, status=400)
+            return Response({"error": str(e)}, status=400)
 
         total_rows = len(csv_isins)
         existing_count = Bond.objects.filter(isin__in=csv_isins).count()
@@ -151,6 +194,82 @@ class BondViewSet(viewsets.ModelViewSet):
         return Response(
             {"total": total_rows, "new": new_rows, "existing": existing_count}
         )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        parser_classes=[rest_framework.parsers.MultiPartParser],
+    )
+    def import_csv(self, request):
+        file_obj = request.FILES.get("file")
+        if not file_obj:
+            return Response({"error": "No file uploaded"})
+        elif not file_obj.name.endswith(".csv"):
+            return Response({"error": "File must be .csv"}, status=400)
+
+        try:
+            reader = decode_csv_file(file_obj)
+        except Exception as e:
+            return Response({"error": {str(e)}}, status=400)
+
+        new_bonds = []
+        existing_issuers = {i.name: i for i in Issuer.objects.all()}
+
+        with transaction.atomic():
+            for r in reader:
+                issuer_name = r.get("Issuer")
+                if not issuer_name or not r.get("ISIN"):
+                    continue
+
+                raw_industry = r.get("Industry", "Other")
+                raw_rating = r.get("Rating", "Lower Medium Grade (BBB)")
+                raw_type = r.get("Type", "Corporate")
+
+                country = r.get("Country", "Other")
+                industry = INDUSTRY_MAP.get(raw_industry, "Other")
+                rating = RATING_MAP.get(raw_rating, "BBB")
+
+                if issuer_name not in existing_issuers:
+                    new_issuer = Issuer.objects.create(
+                        name=issuer_name,
+                        country=country,
+                        industry=industry,
+                        credit_rating=rating,
+                    )
+                    existing_issuers[issuer_name] = new_issuer
+
+                try:
+                    issue_date = parse_date(r.get("Issue Date", ""))
+                    maturity_date = parse_date(r.get("Maturity Date"))
+                except ValueError:
+                    continue  # skip rows with invalid date format.
+
+                bond = Bond(
+                    isin=r.get("ISIN"),
+                    issuer=existing_issuers[issuer_name],
+                    bond_type=BOND_TYPE_MAP.get(raw_type, "CORP"),
+                    face_value=r.get("Face Value", 0),
+                    coupon_rate=r.get("Coupon", 0),
+                    issue_date=issue_date,
+                    maturity_date=maturity_date,
+                )
+                new_bonds.append(bond)
+
+            Bond.objects.bulk_create(
+                new_bonds,
+                1000,
+                unique_fields=["isin"],
+                update_conflicts=True,
+                update_fields=[
+                    "issuer",
+                    "bond_type",
+                    "face_value",
+                    "coupon_rate",
+                    "issue_date",
+                    "maturity_date",
+                ],
+            )
+        return Response({"message": "Upload complete!"}, status=201)
 
 
 class TransactionViewSet(viewsets.ModelViewSet):
