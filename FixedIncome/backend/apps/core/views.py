@@ -230,13 +230,15 @@ class BondViewSet(viewsets.ModelViewSet):
                 rating = RATING_MAP.get(raw_rating, "BBB")
 
                 if issuer_name not in existing_issuers:
-                    new_issuer = Issuer.objects.create(
+                    issuer_obj, _ = Issuer.objects.get_or_create(
                         name=issuer_name,
-                        country=country,
-                        industry=industry,
-                        credit_rating=rating,
+                        defaults={
+                            "country": country,
+                            "industry": industry,
+                            "credit_rating": rating,
+                        },
                     )
-                    existing_issuers[issuer_name] = new_issuer
+                    existing_issuers[issuer_name] = issuer_obj
 
                 try:
                     issue_date = parse_date(r.get("Issue Date", ""))
