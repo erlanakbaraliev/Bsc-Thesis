@@ -8,10 +8,10 @@ import SelectForm from './Forms/SelectForm';
 import DatePickerForm from './Forms/DatePickerForm';
 import * as yup from 'yup'
 import { useNavigate } from 'react-router';
-import MyMessage from './Forms/MyMessage';
 import { useForm, Controller } from "react-hook-form"
 import { yupResolver } from '@hookform/resolvers/yup';
 import { formatDateParam } from '../utils/DateUtils';   
+import Alert from '@mui/material/Alert';
 
 const fieldLabels = {
   isin: "ISIN",
@@ -93,10 +93,7 @@ const CreateBond = () => {
         AxiosInstance.post('bonds/', formattedValues)
         .then(() => {
             setMessage(
-                <MyMessage
-                    messageText={"Successfully submitted data"}
-                    messageColor={"green"}
-                />
+                <Alert severity="success" sx={{ mt:2 }}>Successfully submitted data</Alert>
             )
             setTimeout(()=>{
                 navigate('/')
@@ -110,10 +107,7 @@ const CreateBond = () => {
             console.log(errorText)
 
             setMessage(
-                <MyMessage
-                    messageText={errorText || "Something went wrong. Please try again later."}
-                    messageColor={"red"}
-                />
+                <Alert severity="error" sx={{ mt:2 }}>Something went wrong. Please try again later.</Alert>
             )
         })
     }

@@ -7,10 +7,10 @@ import TextForm from './Forms/TextForm';
 import SelectForm from './Forms/SelectForm';
 import { getData } from 'country-list';
 import * as yup from 'yup'
-import MyMessage from './Forms/MyMessage';
 import { useNavigate } from 'react-router';
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup';
+import Alert from '@mui/material/Alert';
 
 const fieldLabels = {
     name: "Name",
@@ -49,10 +49,7 @@ const CreateIssuer = () => {
         AxiosInstance.post('issuers/', values)
         .then(()=> {
             setMessage(
-                <MyMessage
-                    messageText={"Successfully submitted data"}
-                    messageColor={"green"}
-                />
+             <Alert severity="success" sx={{ mt:2 }}>Successfully submitted data</Alert>
             )
             setTimeout(()=>{
                 navigate('/')
@@ -63,48 +60,15 @@ const CreateIssuer = () => {
             const errorText = Object.entries(data)
                               .map(( [k, v] ) => `${fieldLabels[k]}: ${v[0]}`)
                               .join('\n')
-            console.log(errorText)
+            console.log(errorText);
 
             setMessage(
-                <MyMessage
-                    messageText={errorText || "Something went wrong. Please try again later."}
-                    messageColor={"red"}
-                />
+                <Alert severity="error" sx={{ mt:2 }}>Something went wrong. Please try again later.</Alert>
             )
         })
     }
 
-    //     onSubmit: (values)=>{
-    //         AxiosInstance.post('issuers/', values)
-    //         .then(()=>{
-    //             setMessage(
-    //                 <MyMessage
-    //                     messageText={"Successfully submitted data"}
-    //                     messageColor={"green"}
-    //                 />
-    //             )
-    //             setTimeout(()=>{
-    //                 navigate('/')
-    //             },2000)
-    //         })
-    //         .catch((error)=>{
-    //             const data = error.response?.data
-    //             const errorText = data
-    //                 ? Object.entries(data)
-    //                     .map(([field, msgs]) => `${field}: ${msgs[0]}`)
-    //                     .join(', ')
-    //                 : "Something went wrong, please try again"
-    //             setMessage(
-    //                 <MyMessage
-    //                     messageText={errorText || "Something went wrong, please try again"}
-    //                     messageColor={"red"}
-    //                 />
-    //             )
-    //         })
-    //     }
-    // })
-    //
-    useEffect(()=>{
+   useEffect(()=>{
         AxiosInstance.get('api/meta/').then((res)=>{
             setMeta(res.data)
         })
