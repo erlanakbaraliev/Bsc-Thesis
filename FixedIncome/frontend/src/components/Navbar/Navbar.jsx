@@ -21,7 +21,7 @@ const drawerWidth = 240;
 const shortDrawerWidth = 80
 
 export default function Navbar({content}) {
-  const [isBigMenu, setIsBigMenu] = useState(true)
+  const [isBigMenu, setIsBigMenu] = useState(false);
 
   const { user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -38,6 +38,7 @@ export default function Navbar({content}) {
     handleMenuClose();
     logout();
     navigate('/login');
+    setIsBigMenu(false);
   }
 
   return (
