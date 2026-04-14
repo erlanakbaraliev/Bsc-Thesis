@@ -29,13 +29,13 @@ from .serializers import (
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("id")
     serializer_class = UserSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class IssuerViewSet(viewsets.ModelViewSet):
     queryset = Issuer.objects.all().order_by("id")
     serializer_class = IssuerSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class Echo:
@@ -84,7 +84,7 @@ BOND_TYPE_MAP = {
 class BondViewSet(viewsets.ModelViewSet):
     queryset = Bond.objects.all().order_by("id")
     serializer_class = BondSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_fields = {
@@ -281,7 +281,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.AllowAny])
+@permission_classes([permissions.IsAuthenticated])
 def meta(request):
     return Response(
         {
