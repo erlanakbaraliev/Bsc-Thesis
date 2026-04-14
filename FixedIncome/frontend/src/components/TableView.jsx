@@ -511,7 +511,7 @@ const TableView = () => {
 
   return (
     <>
-      <MaterialReactTable table={table} />;
+      <MaterialReactTable table={table} />
 
       <Dialog
         open={isImportModalOpen}
