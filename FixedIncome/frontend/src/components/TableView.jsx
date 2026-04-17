@@ -85,7 +85,7 @@ const TableView = () => {
   const handleExportMenuClick = (event) => setExportAnchorEl(event.currentTarget);
   const handleExportMenuClose = () => setExportAnchorEl(null);
 
-  {/* ---- Date Filters (issue_date, maturity_date) ---- */}
+  {/* ---- Date Filters (issue_date, maturity_date) ---- */ }
   const [dateFilterAnchorEl, setDateFilterAnchorEl] = useState(null);
   const openDateFilterPopover = Boolean(dateFilterAnchorEl);
 
@@ -94,7 +94,7 @@ const TableView = () => {
 
   const isFilterActive = Object.values(dateFilters).some(val => val !== null);
 
-  {/* ---- Csv Uploader ---- */}
+  {/* ---- Csv Uploader ---- */ }
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
 
   //if you want to avoid useEffect, look at the React Query example instead
@@ -116,14 +116,14 @@ const TableView = () => {
             page: pagination.pageIndex + 1,
             page_size: pagination.pageSize,
             ...filters,
-            issue_date__gte:    formatDateParam(dateFilters.issue_date_gte),
-            issue_date__lte:    formatDateParam(dateFilters.issue_date_lte),
+            issue_date__gte: formatDateParam(dateFilters.issue_date_gte),
+            issue_date__lte: formatDateParam(dateFilters.issue_date_lte),
             maturity_date__gte: formatDateParam(dateFilters.maturity_date_gte),
             maturity_date__lte: formatDateParam(dateFilters.maturity_date_lte),
-            created_at__gte:    formatDateTimeParamAPICall(dateFilters.created_at_gte),
-            created_at__lte:    formatDateTimeParamAPICall(dateFilters.created_at_lte),
-            updated_at__gte:     formatDateTimeParamAPICall(dateFilters.updated_at_gte),
-            updated_at__lte:     formatDateTimeParamAPICall(dateFilters.updated_at_lte),
+            created_at__gte: formatDateTimeParamAPICall(dateFilters.created_at_gte),
+            created_at__lte: formatDateTimeParamAPICall(dateFilters.created_at_lte),
+            updated_at__gte: formatDateTimeParamAPICall(dateFilters.updated_at_gte),
+            updated_at__lte: formatDateTimeParamAPICall(dateFilters.updated_at_lte),
           }
         });
         setData(response.data.results);
@@ -133,6 +133,7 @@ const TableView = () => {
         console.error(error);
         return;
       }
+      console.log(localStorage);
       setIsError(false);
       setIsLoading(false);
       setIsRefetching(false);
@@ -236,8 +237,8 @@ const TableView = () => {
   const handleBulkDelete = () => {
     const selectedIds = Object.keys(rowSelection);
     if (window.confirm(`Delete ${selectedIds.length} bonds?`)) {
-      AxiosInstance.delete('bonds/bulk_delete/', {data: { ids: selectedIds } })
-        .then(()=>{
+      AxiosInstance.delete('bonds/bulk_delete/', { data: { ids: selectedIds } })
+        .then(() => {
           setData(prev => prev.filter(row => !selectedIds.includes(String(row.id))));
           setRowSelection({});
         })
@@ -246,12 +247,12 @@ const TableView = () => {
 
   const getExportUrl = () => {
     const params = new URLSearchParams();
-    
+
     if (sorting.length) {
       const ordering = getOrdering(sorting);
       params.append('ordering', ordering);
     }
-     
+
     const filtering = getColumnFilters(columnFilters);
     Object.entries(filtering).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -275,20 +276,20 @@ const TableView = () => {
     enableGlobalFilter: false,
     getRowId: (row) => row.id,
     positionToolbarAlertBanner: 'bottom',
-    initialState: { 
+    initialState: {
       showColumnFilters: false,
       density: 'compact',
       columnPinning: { right: ['mrt-row-actions'] },
-      columnVisibility: {issuer_country: false, created_at: false, updated_at: false},
+      columnVisibility: { issuer_country: false, created_at: false, updated_at: false },
     },
     manualFiltering: true,
     manualPagination: true,
     manualSorting: true,
     muiToolbarAlertBannerProps: isError
       ? {
-          color: 'error',
-          children: 'Error loading data',
-        }
+        color: 'error',
+        children: 'Error loading data',
+      }
       : undefined,
     onColumnFiltersChange: setColumnFilters,
     onPaginationChange: setPagination,
@@ -327,11 +328,11 @@ const TableView = () => {
         <Box sx={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', padding: '8px 0' }}>
 
           {Object.keys(rowSelection).length > 0 && (
-            <Button 
+            <Button
               variant='contained'
               color='error'
               size='small'
-              startIcon={<DeleteIcon/>}
+              startIcon={<DeleteIcon />}
               onClick={handleBulkDelete}
             >
               Delete Selected ({Object.keys(rowSelection).length})
@@ -365,7 +366,7 @@ const TableView = () => {
               }}
             >
               <ListItemIcon>
-                <CheckBoxIcon fontSize='small'/>
+                <CheckBoxIcon fontSize='small' />
               </ListItemIcon>
               Export Selected Rows
             </MenuItem>
@@ -379,19 +380,33 @@ const TableView = () => {
               }}
             >
               <ListItemIcon>
-                <ArticleIcon fontSize='small'/>
+                <ArticleIcon fontSize='small' />
               </ListItemIcon>
               Export Current Page (5+)
             </MenuItem>
 
             <MenuItem
-              onClick={() => {
-                window.location.href = getExportUrl();
+              onClick={async () => {
+                try {
+                  const url = getExportUrl();
+                  const response = await AxiosInstance.get(url, { responseType: 'blob' });
+                  const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+                  const link = document.createElement('a');
+                  link.href = blobUrl;
+                  link.setAttribute('download', 'bonds_export.csv');
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.URL.revokeObjectURL(blobUrl);
+                } catch (err) {
+                  console.error('Export failed:', err);
+                  alert('Export failed. Please try again.');
+                }
                 handleExportMenuClose();
               }}
             >
               <ListItemIcon>
-                <DatasetIcon fontSize='small'/>
+                <DatasetIcon fontSize='small' />
               </ListItemIcon>
               Export All Matches (Streaming)
             </MenuItem>
@@ -400,12 +415,12 @@ const TableView = () => {
 
           {/* ---------------- Date Filters ---------------- */}
           <Button
-            variant={isFilterActive? "contained" : "outlined"}
+            variant={isFilterActive ? "contained" : "outlined"}
             size="small"
-            startIcon={<FilterListAltIcon/>}
+            startIcon={<FilterListAltIcon />}
             onClick={handleDateFilterClick}
           >
-            Date Filters {isFilterActive? "(Active)": ""}
+            Date Filters {isFilterActive ? "(Active)" : ""}
           </Button>
           <Popover
             open={openDateFilterPopover}
@@ -418,13 +433,13 @@ const TableView = () => {
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Issue Date:</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <DatePicker label="From" value={dateFilters.issue_date_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
-                <DatePicker label="To"   value={dateFilters.issue_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+                <DatePicker label="To" value={dateFilters.issue_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, issue_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
               </Box>
 
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Maturity Date:</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <DatePicker label="From" value={dateFilters.maturity_date_gte} onChange={(val) => setDateFilters(prev => ({ ...prev, maturity_date_gte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
-                <DatePicker label="To"   value={dateFilters.maturity_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, maturity_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+                <DatePicker label="To" value={dateFilters.maturity_date_lte} onChange={(val) => setDateFilters(prev => ({ ...prev, maturity_date_lte: val }))} slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
               </Box>
 
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>Creation Date:</Typography>
@@ -440,18 +455,18 @@ const TableView = () => {
               </Box>
 
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                <Button 
-                  variant="outlined" 
-                  size="small" 
+                <Button
+                  variant="outlined"
+                  size="small"
                   onClick={() => {
                     setDateFilters(
-                      { 
-                        issue_date_gte: null, issue_date_lte: null, 
-                        maturity_date_gte: null, maturity_date_lte: null, 
+                      {
+                        issue_date_gte: null, issue_date_lte: null,
+                        maturity_date_gte: null, maturity_date_lte: null,
                         created_at_gte: null, created_at_lte: null,
                         updated_at_gte: null, updated_at_lte: null
                       })
-                    }
+                  }
                   }>
                   Clear Dates
                 </Button>
@@ -464,7 +479,7 @@ const TableView = () => {
             variant='contained'
             color='primary'
             size='small'
-            startIcon={<CloudUploadIcon/>}
+            startIcon={<CloudUploadIcon />}
             onClick={() => setIsImportModalOpen(true)}
           >
             Import Bonds
@@ -489,7 +504,7 @@ const TableView = () => {
       </Tooltip>
     ),
     renderEditRowDialogContent: ({ row, table }) => (
-      <EditBondModal row={row} table={table} onSaved={(bondId, newData) => setRefreshKey(prev => prev + 1) }/>
+      <EditBondModal row={row} table={table} onSaved={(bondId, newData) => setRefreshKey(prev => prev + 1)} />
     ),
     displayColumnDefOptions: {
       'mrt-row-actions': {
@@ -523,12 +538,12 @@ const TableView = () => {
           <IconButton
             aria-label="close"
             onClick={() => setIsImportModalOpen(false)}
-            sx={{ position:'absolute', right:8, top:8, color:'grey.500' }}
+            sx={{ position: 'absolute', right: 8, top: 8, color: 'grey.500' }}
           >
-            <CloseIcon/>
+            <CloseIcon />
           </IconButton>
 
-          <Box sx={{ mt:2 }}>
+          <Box sx={{ mt: 2 }}>
             <CsvUploader
               onSuccess={() => {
                 setRefreshKey(prev => prev + 1)
