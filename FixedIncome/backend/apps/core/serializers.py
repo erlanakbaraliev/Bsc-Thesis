@@ -57,5 +57,5 @@ class TransactionSerializer(serializers.ModelSerializer):
             "action",
             "quantity",
             "price",
-            "transaction_date",
+            "created_at",
         ]

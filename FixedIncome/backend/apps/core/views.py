@@ -93,9 +93,9 @@ class BondViewSet(viewsets.ModelViewSet):
         "face_value": ["exact", "gte", "lte"],
         "coupon_rate": ["exact", "gte", "lte"],
         "issue_date": ["exact", "gte", "lte"],
-        "maturity_date": ["exact", "gte", "lte", "icontains"],
-        "created_at": ["exact", "gte", "lte", "icontains"],
-        "updated_at": ["exact", "gte", "lte", "icontains"],
+        "maturity_date": ["exact", "gte", "lte"],
+        "created_at": ["exact", "gte", "lte"],
+        "updated_at": ["exact", "gte", "lte"],
         "issuer__name": ["exact", "icontains"],
         "issuer__country": ["exact", "icontains"],
         "issuer__credit_rating": ["exact"],
@@ -182,8 +182,6 @@ class BondViewSet(viewsets.ModelViewSet):
         try:
             reader = decode_csv_file(file_obj)
             csv_isins = [r.get("ISIN") for r in reader if r.get("ISIN")]
-            for r in reader:
-                print(r)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
 
