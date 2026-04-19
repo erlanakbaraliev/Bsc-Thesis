@@ -1,15 +1,30 @@
+/* Legacy TopBar used in CreateBond / CreateIssuer */
 .TopBar {
-  display:flex;
-  padding:10px;
-  background-color: rgb(1,1,75);
-  color:white;
+  display: flex;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #111B35 0%, #0D1426 100%);
+  border-bottom: 1px solid #243056;
+  color: #C9A84C;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  border-radius: 10px 10px 0 0;
+  gap: 10px;
+  font-weight: 600;
 }
 
+/* Fix browser autofill background on dark inputs */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0px 1000px white inset;
-  -webkit-text-fill-color: black;  /* ← fixes white text */
+  -webkit-box-shadow: 0 0 0px 1000px var(--autofill-bg, #F7F9FF) inset;
+  -webkit-text-fill-color: var(--autofill-text, #1C2540);
+  caret-color: var(--autofill-text, #1C2540);
 }
+
+[data-theme='dark'] input:-webkit-autofill,
+[data-theme='dark'] input:-webkit-autofill:hover,
+[data-theme='dark'] input:-webkit-autofill:focus {
+  --autofill-bg: #19223D;
+  --autofill-text: #E8EAF0;
+}
+

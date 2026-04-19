@@ -8,11 +8,13 @@ import LoginPage from './components/LoginPage.jsx'
 import { AuthProvider } from './context/AuthProvider.jsx'
 import PrivateRouter from './components/PrivateRoute.jsx'
 
-function App() {
+function App({ themeMode, onToggleTheme }) {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Navbar
+          themeMode={themeMode}
+          onToggleTheme={onToggleTheme}
           content={
             <Routes>
               <Route path="" element={

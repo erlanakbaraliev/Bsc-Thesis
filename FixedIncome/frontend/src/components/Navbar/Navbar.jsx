@@ -10,6 +10,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LoginIcon from '@mui/icons-material/Login';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 
 import Menu from './Menu';
 import ShortMenu from './ShortMenu';
@@ -20,7 +22,7 @@ import { useNavigate } from 'react-router';
 const drawerWidth = 240;
 const shortDrawerWidth = 80
 
-export default function Navbar({content}) {
+export default function Navbar({ content, themeMode, onToggleTheme }) {
   const [isBigMenu, setIsBigMenu] = useState(false)
 
   const { user, logout } = useAuth();
@@ -50,12 +52,20 @@ export default function Navbar({content}) {
             {isBigMenu? <MenuOpenIcon/>: <MenuIcon/>}
           </IconButton>
           <img src={logo} width="3%"/>
-          <Typography variant='h6' noWrap component="div" sx={{ ml:2 }}>
+          <Typography variant='h6' noWrap component="div" sx={{ ml:2, color: 'text.primary' }}>
             Fixed Income
           </Typography>
   
           {/* Push everything after this to the right */}
           <Box sx={{ flexGrow: 1 }}/>
+            <IconButton
+              onClick={onToggleTheme}
+              size="small"
+              aria-label="Toggle light and dark theme"
+              sx={{ mr: 1 }}
+            >
+              {themeMode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
             {user ? (
               <>
                 <IconButton onClick={handleAvatarClick} size="small">
