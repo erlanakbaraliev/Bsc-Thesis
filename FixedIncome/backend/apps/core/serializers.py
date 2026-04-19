@@ -7,7 +7,7 @@ from .models import Bond, Issuer, Transaction
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["url", "username", "email", "groups"]
+        fields = ["username", "email", "groups"]
 
 
 class IssuerSerializer(serializers.ModelSerializer):
