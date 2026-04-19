@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router';
 import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup';
 import Alert from '@mui/material/Alert';
+import { formatFieldErrors, getApiErrorMessage } from '../utils/apiError';
 
 const fieldLabels = {
     name: "Name",
@@ -22,6 +23,7 @@ const fieldLabels = {
 const CreateIssuer = () => {
     const [meta, setMeta] = useState(null)
     const [message, setMessage] = useState([])
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const navigate = useNavigate()
 
     const ValidationSchema = yup.object({
@@ -45,33 +47,50 @@ const CreateIssuer = () => {
         resolver: yupResolver(ValidationSchema)
     })
 
-    const onSubmit = (values) => {
-        AxiosInstance.post('issuers/', values)
-        .then(()=> {
+    const onSubmit = async (values) => {
+        setIsSubmitting(true)
+        try {
+            await AxiosInstance.post('issuers/', values)
             setMessage(
              <Alert severity="success" sx={{ mt:2 }}>Successfully submitted data</Alert>
             )
             setTimeout(()=>{
                 navigate('/')
             },2000)
-        })
-        .catch((error)=>{
-            const data = error.response?.data
-            const errorText = Object.entries(data)
-                              .map(( [k, v] ) => `${fieldLabels[k]}: ${v[0]}`)
-                              .join('\n')
-            console.log(errorText);
-
+        } catch (error) {
+            const fieldErrors = formatFieldErrors(error.response?.data, fieldLabels)
+            const fallback = getApiErrorMessage(error)
+            const errorText = fieldErrors || fallback
             setMessage(
-                <Alert severity="error" sx={{ mt:2 }}>Something went wrong. Please try again later.</Alert>
+                <Alert severity="error" sx={{ mt:2, whiteSpace: 'pre-line' }}>{errorText}</Alert>
             )
-        })
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
    useEffect(()=>{
-        AxiosInstance.get('api/meta/').then((res)=>{
-            setMeta(res.data)
-        })
+        let isMounted = true
+
+        AxiosInstance.get('api/meta/')
+            .then((res)=>{
+                if (isMounted) {
+                    setMeta(res.data)
+                }
+            })
+            .catch(() => {
+                if (isMounted) {
+                    setMessage(
+                        <Alert severity="error" sx={{ mt:2 }}>
+                            Failed to load metadata. Please refresh and try again.
+                        </Alert>
+                    )
+                }
+            })
+
+        return () => {
+            isMounted = false
+        }
     },[])
     if (!meta) return null;
 
@@ -162,7 +181,9 @@ const CreateIssuer = () => {
                     >
                     </Controller>
                     <Box sx={{ gridColumn: { md: '1 / -1' } }}>
-                        <Button type="submit" variant="contained" onClick={handleSubmit(onSubmit)} fullWidth>Submit</Button>
+                        <Button type="submit" variant="contained" onClick={handleSubmit(onSubmit)} fullWidth disabled={isSubmitting}>
+                            {isSubmitting ? 'Submitting...' : 'Submit'}
+                        </Button>
                     </Box>
                 </Box>
             </form>

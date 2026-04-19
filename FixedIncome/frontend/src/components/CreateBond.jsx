@@ -12,6 +12,7 @@ import { useForm, Controller } from "react-hook-form"
 import { yupResolver } from '@hookform/resolvers/yup';
 import { formatDateParam } from '../utils/DateUtils';   
 import Alert from '@mui/material/Alert';
+import { formatFieldErrors, getApiErrorMessage } from '../utils/apiError';
 
 const fieldLabels = {
   isin: "ISIN",
@@ -27,6 +28,7 @@ const CreateBond = () => {
     const [meta, setMeta] = useState(null)
     const [issuers, setIssuers] = useState([])
     const [message, setMessage] = useState([])
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const navigate = useNavigate()
 
     const ValidationSchema = yup.object({
@@ -81,44 +83,59 @@ const CreateBond = () => {
 
     const issueDate = watch('issue_date')
 
-    const onSubmit = (values) => {
+    const onSubmit = async (values) => {
         const formattedValues = {
             ...values,
             issue_date:    formatDateParam(values.issue_date),
             maturity_date: formatDateParam(values.maturity_date)
         }
 
-        console.log(formattedValues)
-
-        AxiosInstance.post('bonds/', formattedValues)
-        .then(() => {
+        setIsSubmitting(true)
+        try {
+            await AxiosInstance.post('bonds/', formattedValues)
             setMessage(
                 <Alert severity="success" sx={{ mt:2 }}>Successfully submitted data</Alert>
             )
             setTimeout(()=>{
                 navigate('/')
             }, 2000)
-        })
-        .catch((error) => {
-            const data = error.response?.data
-            const errorText = Object.entries(data)
-                              .map(( [k, v] ) => `${fieldLabels[k]}: ${v[0]}`)
-                              .join('\n')
-            console.log(errorText)
-
+        } catch (error) {
+            const fieldErrors = formatFieldErrors(error.response?.data, fieldLabels)
+            const fallback = getApiErrorMessage(error)
+            const errorText = fieldErrors || fallback
             setMessage(
-                <Alert severity="error" sx={{ mt:2 }}>Something went wrong. Please try again later.</Alert>
+                <Alert severity="error" sx={{ mt:2, whiteSpace: 'pre-line' }}>{errorText}</Alert>
             )
-        })
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     useEffect(()=>{
-        AxiosInstance.get('api/meta/').then((res)=>{
-            setMeta(res.data)
-        })
-        AxiosInstance.get('issuers/').then((res)=>{
-            setIssuers(res.data)
-        })
+        let isMounted = true
+
+        Promise.all([
+            AxiosInstance.get('api/meta/'),
+            AxiosInstance.get('issuers/'),
+        ])
+            .then(([metaRes, issuersRes]) => {
+                if (!isMounted) return
+                setMeta(metaRes.data)
+                setIssuers(issuersRes.data)
+            })
+            .catch(() => {
+                if (isMounted) {
+                    setMessage(
+                        <Alert severity="error" sx={{ mt:2 }}>
+                            Failed to load form data. Please refresh and try again.
+                        </Alert>
+                    )
+                }
+            })
+
+        return () => {
+            isMounted = false
+        }
     },[])
     if (!meta || issuers === undefined) return null;
 
@@ -255,7 +272,9 @@ const CreateBond = () => {
                     >
                     </Controller>
                     <Box sx={{ gridColumn: { md: '1 / -1' } }}>
-                        <Button type="submit" variant="contained" onClick={handleSubmit(onSubmit)} fullWidth>Submit</Button>
+                        <Button type="submit" variant="contained" onClick={handleSubmit(onSubmit)} fullWidth disabled={isSubmitting}>
+                            {isSubmitting ? 'Submitting...' : 'Submit'}
+                        </Button>
                     </Box>
                 </Box>
             </form>

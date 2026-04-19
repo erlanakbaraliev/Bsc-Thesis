@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const baseURL = 'http://127.0.0.1:8000/'
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/'
 
 const AxiosInstance = axios.create({
   baseURL: baseURL,
@@ -21,17 +21,21 @@ AxiosInstance.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
+    const requestUrl = original?.url || '';
 
-    {/* If user is trying to login for the first time and entered wrong credentials, 401, don't even try to access refresh key, bc there's none */}
-    if (original.url.includes('api/token/')) {
+    // If login fails with 401, don't attempt refresh.
+    if (requestUrl.includes('api/token/')) {
        return Promise.reject(error);
     }
 
-    if (error.response?.status === 401 && !original._retry) {
+    if (error.response?.status === 401 && original && !original._retry) {
       original._retry = true;
       try {
         const refresh = localStorage.getItem('refresh');
-        const { data } = await axios.post('http://127.0.0.1:8000/api/token/refresh/', { refresh });
+        if (!refresh) {
+          throw new Error('No refresh token available');
+        }
+        const { data } = await axios.post(`${baseURL}api/token/refresh/`, { refresh });
         localStorage.setItem('access', data.access);
         original.headers.Authorization = `Bearer ${data.access}`;
         return AxiosInstance(original);
