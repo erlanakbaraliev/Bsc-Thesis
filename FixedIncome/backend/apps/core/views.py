@@ -7,9 +7,8 @@ from django.db import transaction
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import permissions, status, viewsets
+from rest_framework import permissions, status
 from rest_framework.decorators import (
-    action,
     api_view,
     permission_classes,
 )
@@ -19,6 +18,7 @@ from rest_framework.views import APIView, Response
 from apps.core.utils.utils import decode_csv_file, parse_date
 
 from .models import Bond, Issuer, Transaction
+from .pagination import StandardResultsSetPagination
 from .serializers import (
     BondSerializer,
     IssuerSerializer,
@@ -119,11 +119,6 @@ class IssuerDetailAPIView(APIView):
 # ---------------------------------------------------------------------------
 
 
-class Echo:
-    def write(self, value):
-        return value
-
-
 INDUSTRY_MAP = {
     "Telecom": "Communication Services",
     "Energy": "Energy",
@@ -162,12 +157,11 @@ BOND_TYPE_MAP = {
 }
 
 
-class BondViewSet(viewsets.ModelViewSet):
-    queryset = Bond.objects.all().order_by("id")
-    serializer_class = BondSerializer
+class BondListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
-
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    pagination_class = StandardResultsSetPagination
+
     filterset_fields = {
         "isin": ["exact", "icontains"],
         "bond_type": ["exact", "icontains"],
@@ -199,16 +193,111 @@ class BondViewSet(viewsets.ModelViewSet):
         "issuer__industry",
     ]
 
-    @action(detail=False, methods=["delete"])
-    def bulk_delete(self, request):
+    def get(self, request):
+        queryset = Bond.objects.all().order_by("id")
+        for backend in list(self.filter_backends):
+            queryset = backend().filter_queryset(request, queryset, self)
+
+        paginator = self.pagination_class()
+        paginated_queryset = paginator.paginate_queryset(queryset, request, view=self)
+        serializer = BondSerializer(paginated_queryset, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    def post(self, request):
+        serializer = BondSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BondDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        bond = get_object_or_404(Bond, pk=pk)
+        serializer = BondSerializer(bond)
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        bond = get_object_or_404(Bond, pk=pk)
+        serializer = BondSerializer(bond, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        bond = get_object_or_404(Bond, pk=pk)
+        bond.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Bonds/Bulk Delete
+# ---------------------------------------------------------------------------
+
+
+class BondBulkDeleteAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request):
         ids = request.data.get("ids", [])
         Bond.objects.filter(id__in=ids).delete()
         return Response(status=204)
 
-    @action(detail=False, methods=["get"])
-    def export_csv(self, request):
-        # This applies all your Search, Ordering, and DjangoFilters automatically!
-        queryset = self.filter_queryset(self.get_queryset()).select_related("issuer")
+
+# ---------------------------------------------------------------------------
+# Bonds/Export CSV
+# ---------------------------------------------------------------------------
+
+
+class Echo:
+    def write(self, value):
+        return value
+
+
+class BondExportCsvAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+
+    filterset_fields = {
+        "isin": ["exact", "icontains"],
+        "bond_type": ["exact", "icontains"],
+        "face_value": ["exact", "gte", "lte"],
+        "coupon_rate": ["exact", "gte", "lte"],
+        "issue_date": ["exact", "gte", "lte"],
+        "maturity_date": ["exact", "gte", "lte"],
+        "created_at": ["exact", "gte", "lte"],
+        "updated_at": ["exact", "gte", "lte"],
+        "issuer__name": ["exact", "icontains"],
+        "issuer__country": ["exact", "icontains"],
+        "issuer__credit_rating": ["exact"],
+        "issuer__industry": ["exact", "icontains"],
+    }
+    ordering = ["id"]  # Default order column
+    search_fields = ["isin"]
+    ordering_fields = [
+        "isin",
+        "bond_type",
+        "face_value",
+        "coupon_rate",
+        "issue_date",
+        "maturity_date",
+        "created_at",
+        "updated_at",
+        "issuer__name",
+        "issuer__country",
+        "issuer__credit_rating",
+        "issuer__industry",
+    ]
+
+    def get(self, request):
+        queryset = Bond.objects.all().select_related("issuer")
+
+        for backend in list(self.filter_backends):
+            queryset = backend().filter_queryset(request, queryset, self)
 
         def row_generator():
             echo = Echo()
@@ -248,12 +337,19 @@ class BondViewSet(viewsets.ModelViewSet):
         response["Content-Disposition"] = 'attachment; filename="bonds_export.csv"'
         return response
 
-    @action(
-        detail=False,
-        methods=["post"],
-        parser_classes=[rest_framework.parsers.MultiPartParser],
-    )
-    def import_preview(self, request):
+
+# ---------------------------------------------------------------------------
+# Bonds/Export CSV
+# ---------------------------------------------------------------------------
+
+
+class BondImportPreviewAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [
+        rest_framework.parsers.MultiPartParser
+    ]  # Tells DRF to expect multipart/form-data (files)
+
+    def post(self, request):
         file_obj = request.FILES.get("file")
         if not file_obj:
             return Response({"error": "No file uploaded"})
@@ -274,12 +370,17 @@ class BondViewSet(viewsets.ModelViewSet):
             {"total": total_rows, "new": new_rows, "existing": existing_count}
         )
 
-    @action(
-        detail=False,
-        methods=["post"],
-        parser_classes=[rest_framework.parsers.MultiPartParser],
-    )
-    def import_csv(self, request):
+
+# ---------------------------------------------------------------------------
+# Bonds/Import CSV
+# ---------------------------------------------------------------------------
+
+
+class BondImportCsvAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [rest_framework.parsers.MultiPartParser]
+
+    def post(self, request):
         file_obj = request.FILES.get("file")
         if not file_obj:
             return Response({"error": "No file uploaded"})
