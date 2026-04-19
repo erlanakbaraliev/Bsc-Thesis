@@ -21,7 +21,7 @@ export default function SelectForm({label, options, valueKey='id', name='name', 
         onBlur={onBlur}
         error={error}
       >
-        {options.map((option)=>(
+        {options?.map((option)=>(
           <MenuItem key={option[valueKey]} value={option[valueKey]}>{option.name}</MenuItem>
         ))}
       </Select>

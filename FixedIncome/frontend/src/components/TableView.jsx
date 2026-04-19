@@ -133,7 +133,6 @@ const TableView = () => {
         console.error(error);
         return;
       }
-      console.log(localStorage);
       setIsError(false);
       setIsLoading(false);
       setIsRefetching(false);

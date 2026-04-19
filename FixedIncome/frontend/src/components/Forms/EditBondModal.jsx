@@ -80,9 +80,11 @@ const EditBondModal = ({row, table, onSaved}) => {
             AxiosInstance.get('api/meta/'),
             AxiosInstance.get('issuers/'),
         ]).then(([metaRes, issuersRes]) => {
+            console.log('Issuers Response Data:', issuersRes.data);
             setMeta(metaRes.data)
-            setIssuers(issuersRes.data.results)
-            const issuerObject = issuersRes.data.results.find(i => i.id === bond.issuer);
+            const issuerList = issuersRes.data.results ?? issuersRes.data;  // ← handle both shapes
+            setIssuers(issuerList)
+            const issuerObject = issuerList.find(i => i.id === bond.issuer);
             setSelectedIssuer(issuerObject)
         })
     },[]);
@@ -118,7 +120,7 @@ const EditBondModal = ({row, table, onSaved}) => {
         })
     };
 
-    const isLoading = issuers.length === 0;
+    const isLoading = (issuers?.length ?? 0) === 0;
 
     return (
         <>

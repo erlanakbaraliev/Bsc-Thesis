@@ -117,10 +117,10 @@ const CreateBond = () => {
             setMeta(res.data)
         })
         AxiosInstance.get('issuers/').then((res)=>{
-            setIssuers(res.data.results)
+            setIssuers(res.data)
         })
     },[])
-    if (!meta || issuers.length === 0) return null;
+    if (!meta || issuers === undefined) return null;
 
     return (
         <div>
