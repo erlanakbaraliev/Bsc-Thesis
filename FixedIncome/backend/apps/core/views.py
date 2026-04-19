@@ -26,6 +26,10 @@ from .serializers import (
     UserSerializer,
 )
 
+# ---------------------------------------------------------------------------
+# User
+# ---------------------------------------------------------------------------
+
 
 class UserListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -66,6 +70,11 @@ class UserDetailAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+# ---------------------------------------------------------------------------
+# Issuer
+# ---------------------------------------------------------------------------
+
+
 class IssuerListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -103,6 +112,11 @@ class IssuerDetailAPIView(APIView):
         issuer = get_object_or_404(Issuer, pk=pk)
         issuer.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# Bond
+# ---------------------------------------------------------------------------
 
 
 class Echo:
@@ -339,10 +353,53 @@ class BondViewSet(viewsets.ModelViewSet):
         return Response({"message": "Upload complete!"}, status=201)
 
 
-class TransactionViewSet(viewsets.ModelViewSet):
-    queryset = Transaction.objects.all().order_by("id")
-    serializer_class = TransactionSerializer
+# ---------------------------------------------------------------------------
+# Transaction
+# ---------------------------------------------------------------------------
+
+
+class TransactionListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        transactions = Transaction.objects.all().order_by("id")
+        serializer = TransactionSerializer(transactions, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = TransactionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TransactionDetailAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        transaction = get_object_or_404(Transaction, pk=pk)
+        serializer = TransactionSerializer(transaction)
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        transaction = get_object_or_404(Transaction, pk=pk)
+        serializer = TransactionSerializer(transaction, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        transaction = get_object_or_404(Transaction, pk=pk)
+        transaction.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ---------------------------------------------------------------------------
+# meta
+# ---------------------------------------------------------------------------
 
 
 @api_view(["GET"])
