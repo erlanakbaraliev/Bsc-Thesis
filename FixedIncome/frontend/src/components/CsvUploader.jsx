@@ -19,6 +19,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useDropzone } from 'react-dropzone'
 
 import AxiosInstance from './Axios';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const CsvUploader = ({ onSuccess }) => {
   const [uploading, setUploading] = useState(false);
@@ -28,7 +29,7 @@ const CsvUploader = ({ onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewStats, setPreviewStats] = useState(null);
 
-  const onDrop = useCallback((acceptedFiles) => {
+  const onDrop = useCallback(async (acceptedFiles) => {
     const file = acceptedFiles[0]
     if (!file) return;
 
@@ -39,42 +40,42 @@ const CsvUploader = ({ onSuccess }) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    AxiosInstance.post('bonds/import_preview/', formData, {
-      headers: { 'Content-Type': 'multipart/form-date'}
-    })
-      .then((response) => {
-        setPreviewStats(response.data);
+    try {
+      const response = await AxiosInstance.post('bonds/import_preview/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data'}
       })
-      .catch((error) => {
-        setResult({ type: 'error', msg: error.response?.data?.error || 'Preview failed' })
-      })
-      .finally(() => {
-        setUploading(false)
-      })
+      setPreviewStats(response.data);
+    } catch (error) {
+      setResult({ type: 'error', msg: getApiErrorMessage(error, 'Preview failed') })
+    } finally {
+      setUploading(false)
+    }
   }, [])
 
-  const handleConfirmUpload = () => {
+  const handleConfirmUpload = async () => {
+    if (!selectedFile) {
+      setResult({ type: 'error', msg: 'No file selected for upload.' })
+      return;
+    }
+
     setPreviewStats(null); // Close modal
     setUploading(true);
 
     const formData = new FormData();
     formData.append('file', selectedFile);
 
-    // Step 2: Actually import the data
-    AxiosInstance.post('bonds/import_csv/', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-      .then(() => {
-        setResult({ type: 'success', msg: `Successfully processed ${selectedFile.name}.` });
-        setSelectedFile(null);
-        if (onSuccess) setTimeout(onSuccess, 2000); // Refresh table
+    try {
+      await AxiosInstance.post('bonds/import_csv/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       })
-      .catch((error) => {
-        setResult({ type: 'error', msg: error.response?.data?.error || 'Upload failed.' });
-      })
-      .finally(() => {
-        setUploading(false);
-      });
+      setResult({ type: 'success', msg: `Successfully processed ${selectedFile.name}.` });
+      setSelectedFile(null);
+      if (onSuccess) setTimeout(onSuccess, 2000); // Refresh table
+    } catch (error) {
+      setResult({ type: 'error', msg: getApiErrorMessage(error, 'Upload failed.') });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleCancel = () => {
