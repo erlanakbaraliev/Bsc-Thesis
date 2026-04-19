@@ -5,15 +5,16 @@ import rest_framework.parsers
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.http import StreamingHttpResponse
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import (
     action,
     api_view,
     permission_classes,
 )
 from rest_framework.filters import OrderingFilter, SearchFilter
-from rest_framework.views import Response
+from rest_framework.views import APIView, Response
 
 from apps.core.utils.utils import decode_csv_file, parse_date
 
@@ -32,10 +33,43 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 
-class IssuerViewSet(viewsets.ModelViewSet):
-    queryset = Issuer.objects.all().order_by("id")
-    serializer_class = IssuerSerializer
+class IssuerListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        issuers = Issuer.objects.all().order_by("id")
+        serializer = IssuerSerializer(issuers, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = IssuerSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class IssuerDetailAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        issuer = get_object_or_404(Issuer, pk=pk)
+        serializer = IssuerSerializer(issuer)
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        issuer = get_object_or_404(Issuer, pk=pk)
+        serializer = IssuerSerializer(issuer, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        issuer = get_object_or_404(Issuer, pk=pk)
+        issuer.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class Echo:

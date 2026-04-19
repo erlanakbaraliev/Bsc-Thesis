@@ -10,7 +10,6 @@ from apps.core import views
 
 router = routers.DefaultRouter()
 router.register(r"users", views.UserViewSet)
-router.register(r"issuers", views.IssuerViewSet)
 router.register(r"bonds", views.BondViewSet)
 router.register(r"transactions", views.TransactionViewSet)
 
@@ -21,4 +20,10 @@ urlpatterns = [
     path("", include(router.urls)),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path(
+        "issuers/", views.IssuerListCreateAPIView.as_view(), name="issuer-list-create"
+    ),
+    path(
+        "issuers/<int:pk>/", views.IssuerDetailAPIView.as_view(), name="issuer-detail"
+    ),
 ]
