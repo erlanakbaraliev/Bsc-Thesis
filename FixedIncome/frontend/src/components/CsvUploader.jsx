@@ -9,7 +9,6 @@ import {
   DialogContent,
   DialogTitle,
   DialogActions,
-  IconButton,
   Typography,
   Alert,
 } from '@mui/material'
@@ -90,7 +89,7 @@ const CsvUploader = ({ onSuccess }) => {
   })
 
   return (
-    <Box sx={{ mb:3 }}>
+    <Box sx={{ mb: 3 }}>
       <Box
         {...getRootProps()}
         sx={{
@@ -108,8 +107,8 @@ const CsvUploader = ({ onSuccess }) => {
           <CircularProgress />
         ) : (
           <>
-              <CloudUploadIcon sx={{ fontSize: 48, color: 'grey.500', mb:1 }}/>
-              <Typography variant='h6'> Drag & Drop you CSV here</Typography>
+            <CloudUploadIcon sx={{ fontSize: 48, color: 'grey.500', mb: 1 }} />
+            <Typography variant='h6'> Drag & Drop you CSV here</Typography>
           </>
         )}
       </Box>
@@ -126,7 +125,7 @@ const CsvUploader = ({ onSuccess }) => {
             <li><b>{previewStats?.new}</b> new bonds will be inserted</li>
             <li><b>{previewStats?.existing}</b> existing bonds will be updated with the new bond data</li>
           </ul>
-          <Typography variant='body2' color="textSecondary" sx={{ mt:2 }}>
+          <Typography variant='body2' color="textSecondary" sx={{ mt: 2 }}>
             Total rows detected: {previewStats?.total}
           </Typography>
         </DialogContent>

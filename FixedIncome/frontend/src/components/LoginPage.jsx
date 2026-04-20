@@ -6,9 +6,10 @@ import { useForm, Controller } from "react-hook-form"
 import { yupResolver } from '@hookform/resolvers/yup';
 import { loginValidationSchema } from '../validation/loginValidation';
 import { useAuth } from '../hooks/useAuth'
+import { getApiErrorMessage } from '../utils/apiError';
 
 export default function LoginPage() {
-  const [backendError, setBackendError] = useState('');
+  const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
@@ -23,20 +24,27 @@ export default function LoginPage() {
   });
   const onSubmit = async(data) => {
     setLoading(true);
-    setBackendError('');
     try {
       await login(data.username, data.password)
       navigate('/')
-    } catch {
-      setBackendError('Invalid username or password')
+    } catch(error) {
+      const status = error?.response?.status
+
+      const errorMessage = (status === 401 || status === 400)
+        ? "Invalid username or password."
+        : getApiErrorMessage(error)
+
+      setMessage(
+          <Alert severity="error" sx={{ mt: 2, whiteSpace: 'pre-line' }}>{errorMessage}</Alert>
+      )
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Box sx={{ minHeight: '89vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor:'grey.100' }}>
-      <Paper elevation={3} sx={{ p:4, width: '100%', maxWidth: 400, borderRadius: 3 }}>
+    <Box sx={{ minHeight: '89vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor:'background.default' }}>
+      <Paper elevation={3} sx={{ p:4, width: '100%', maxWidth: 400, borderRadius: 3, bgcolor: 'background.paper' }}>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb:3 }}>
           <Box sx={{ bgcolor: 'primary.main', borderRadius: '50%', p:1.5, mb:1.5 }}>
@@ -46,7 +54,11 @@ export default function LoginPage() {
           <Typography variant="body2" color="text.secondary">Fixed Income Dashboard</Typography>
         </Box>
 
-        {backendError && <Alert severity="error" sx={{ mb:2 }}>{backendError}</Alert>}
+        {message && (
+          <Box sx={{ gridColumn: { md: '1/-1' }, mb: '15px' }}>
+            {message}
+          </Box>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <Controller

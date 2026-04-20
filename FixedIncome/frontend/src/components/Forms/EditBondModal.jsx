@@ -1,7 +1,7 @@
-import {React, useState, useEffect} from 'react'
+import { React, useState, useEffect } from 'react'
 import TextField from '@mui/material/TextField';
 import AddBoxIcon from '@mui/icons-material/AddBox';
-import { DialogActions,  Typography } from "@mui/material"
+import { DialogActions, Typography, Alert } from "@mui/material"
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import DialogContent from '@mui/material/DialogContent';
@@ -14,6 +14,7 @@ import { useForm, Controller } from "react-hook-form"
 import * as yup from 'yup'
 import { yupResolver } from '@hookform/resolvers/yup'
 import dayjs from 'dayjs';
+import { formatFieldErrors, getApiErrorMessage } from '../../utils/apiError';
 
 const ValidationSchema = yup.object({
     isin: yup
@@ -52,11 +53,21 @@ const ValidationSchema = yup.object({
         .min(yup.ref('issue_date'), 'Maturity date must be after issue date'),
 })
 
-const EditBondModal = ({row, table, onSaved}) => {
+const fieldLabels = {
+    isin: "ISIN",
+    issuer: "Issuer",
+    bond_type: "Bond type",
+    face_value: "Face value",
+    coupon_rate: "Coupon rate",
+    issue_date: "Issue date",
+    maturity_date: "Maturity date"
+};
+
+const EditBondModal = ({ row, table, onSaved }) => {
     const [issuers, setIssuers] = useState([]);
-    // If issuer changes, country and credit_rating automatically changes (country, credit_rating can't be edited)
-    const [selectedIssuer, setSelectedIssuer]= useState();
+    const [selectedIssuer, setSelectedIssuer] = useState();
     const [meta, setMeta] = useState();
+    const [message, setMessage] = useState(null);
     const bond = row.original;
     const { handleSubmit, control, watch, formState: {errors} } = useForm({
         defaultValues: {
@@ -80,7 +91,6 @@ const EditBondModal = ({row, table, onSaved}) => {
             AxiosInstance.get('api/meta/'),
             AxiosInstance.get('issuers/'),
         ]).then(([metaRes, issuersRes]) => {
-            console.log('Issuers Response Data:', issuersRes.data);
             setMeta(metaRes.data)
             const issuerList = issuersRes.data.results ?? issuersRes.data;  // ← handle both shapes
             setIssuers(issuerList)
@@ -89,35 +99,27 @@ const EditBondModal = ({row, table, onSaved}) => {
         })
     },[]);
 
-    const onSubmit = (values, e) => {
+    const onSubmit = async (values) => {
         const formattedValues = {
             ...values,
             issue_date:    dayjs(values.issue_date).format('YYYY-MM-DD'),
             maturity_date: dayjs(values.maturity_date).format('YYYY-MM-DD'),
-        }
+        };
 
-        AxiosInstance.patch(`bonds/${bond.id}/`, formattedValues)
-        .then((res)=>{
+        try {
+            const res = await AxiosInstance.patch(`bonds/${bond.id}/`, formattedValues)
             onSaved(bond.id, res.data);
             table.setEditingRow(null);
-        })
-        .catch((error) => {
-            console.log(error)
+        }
+        catch (error) {
+            const fieldErrors = formatFieldErrors(error.response?.data, fieldLabels)
+            const fallback = getApiErrorMessage(error)
+            setMessage(
+                <Alert severity="error" sx={{ mt: 2, whiteSpace: 'pre-line' }}>{fieldErrors || fallback}</Alert>
+            )
 
-            if (error.response) {
-                // Backend returned an error response (e.g. 400, 403, 500)
-                console.log(error.response.data);
-                alert("Error: " + JSON.stringify(error.response.data));
-            } 
-            else if (error.request) {
-                // Request sent but no response received
-                alert("Server not responding");
-            } 
-            else {
-                // Something else happened
-                alert("Unexpected error occurred");
-            }
-        })
+            console.log(error)
+        }
     };
 
     const isLoading = (issuers?.length ?? 0) === 0;
@@ -125,8 +127,8 @@ const EditBondModal = ({row, table, onSaved}) => {
     return (
         <>
             <Box className={"TopBar"}>
-                <AddBoxIcon/>
-                <Typography sx={{marginLeft: '15px'}}>Edit Bond</Typography>
+                <AddBoxIcon />
+                <Typography sx={{ marginLeft: '15px' }}>Edit Bond</Typography>
             </Box>
 
             <DialogContent>
@@ -142,6 +144,12 @@ const EditBondModal = ({row, table, onSaved}) => {
                         padding: '15px',
                         boxShadow: 'rgba(100,100,111,0.2) 0px 7px 29px 0px',
                     }}>
+                        {message && (
+                            <Box sx={{ gridColumn: { md: '1/-1' } }}>
+                                {message}
+                            </Box>
+                        )}
+
                         <Controller 
                             name='isin'
                             control={control}

@@ -31,7 +31,7 @@ export function formatFieldErrors(errorData, fieldLabels = {}) {
       const messages = Array.isArray(value) ? value : [value];
       return messages
         .filter(Boolean)
-        .map((message) => `${fieldLabel}: ${message}`);
+        .map((message) => `${message}`);
     })
     .join('\n');
 }
