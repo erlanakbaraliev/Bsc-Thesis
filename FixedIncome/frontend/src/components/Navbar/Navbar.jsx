@@ -46,7 +46,14 @@ export default function Navbar({ content, themeMode, onToggleTheme }) {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <AppBar
+        position="fixed"
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          bgcolor: 'background.paper',
+          color: 'text.primary',
+        }}
+      >
         <Toolbar>
           <IconButton sx={{marginRight:'40px'}} onClick={changeMenu}>
             {isBigMenu? <MenuOpenIcon/>: <MenuIcon/>}
@@ -94,10 +101,12 @@ export default function Navbar({ content, themeMode, onToggleTheme }) {
               </>
             ): (
               <Button
-                color="inherit"
+                variant="outlined"
+                color="primary"
                 startIcon={<LoginIcon/>}
                 onClick={() => navigate('/login')}
                 size="small"
+                sx={{ borderWidth: 1.5 }}
               >
                   Sign in
               </Button>

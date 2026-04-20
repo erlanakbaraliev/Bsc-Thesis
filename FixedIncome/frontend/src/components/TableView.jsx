@@ -503,7 +503,7 @@ const TableView = () => {
       </Tooltip>
     ),
     renderEditRowDialogContent: ({ row, table }) => (
-      <EditBondModal row={row} table={table} onSaved={(bondId, newData) => setRefreshKey(prev => prev + 1)} />
+      <EditBondModal row={row} table={table} onSaved={() => setRefreshKey(prev => prev + 1)} />
     ),
     displayColumnDefOptions: {
       'mrt-row-actions': {

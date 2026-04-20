@@ -1,6 +1,6 @@
-import {React, useState, useEffect} from 'react'
+import { React, useState, useEffect } from 'react'
 import AxiosInstance from './Axios'
-import {Box, Typography} from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import Button from '@mui/material/Button';
 import TextForm from './Forms/TextForm';
@@ -15,13 +15,13 @@ import Alert from '@mui/material/Alert';
 import { formatFieldErrors, getApiErrorMessage } from '../utils/apiError';
 
 const fieldLabels = {
-  isin: "ISIN",
-  issuer: "Issuer",
-  bond_type: "Bond type",
-  face_value: "Face value",
-  coupon_rate: "Coupon rate",
-  issue_date: "Issue date",
-  maturity_date: "Maturity date"
+    isin: "ISIN",
+    issuer: "Issuer",
+    bond_type: "Bond type",
+    face_value: "Face value",
+    coupon_rate: "Coupon rate",
+    issue_date: "Issue date",
+    maturity_date: "Maturity date"
 };
 
 const CreateBond = () => {
@@ -68,15 +68,15 @@ const CreateBond = () => {
             .min(yup.ref('issue_date'), 'Maturity date must be after issue date'),
     })
 
-    const { handleSubmit, control, watch, formState: {errors} } = useForm({
+    const { handleSubmit, control, watch, formState: { errors } } = useForm({
         defaultValues: {
-            isin:'',
-            issuer:'',
-            bond_type:'',
-            face_value:'',
-            coupon_rate:'',
-            issue_date:'',
-            maturity_date:''
+            isin: '',
+            issuer: '',
+            bond_type: '',
+            face_value: '',
+            coupon_rate: '',
+            issue_date: '',
+            maturity_date: ''
         },
         resolver: yupResolver(ValidationSchema)
     });
@@ -94,24 +94,23 @@ const CreateBond = () => {
         try {
             await AxiosInstance.post('bonds/', formattedValues)
             setMessage(
-                <Alert severity="success" sx={{ mt:2 }}>Successfully submitted data</Alert>
+                <Alert severity="success" sx={{ mt: 2 }}>Successfully submitted data</Alert>
             )
-            setTimeout(()=>{
+            setTimeout(() => {
                 navigate('/')
             }, 2000)
         } catch (error) {
             const fieldErrors = formatFieldErrors(error.response?.data, fieldLabels)
             const fallback = getApiErrorMessage(error)
-            const errorText = fieldErrors || fallback
             setMessage(
-                <Alert severity="error" sx={{ mt:2, whiteSpace: 'pre-line' }}>{errorText}</Alert>
+                <Alert severity="error" sx={{ mt:2, whiteSpace: 'pre-line' }}>{fieldErrors || fallback}</Alert>
             )
         } finally {
             setIsSubmitting(false)
         }
     }
 
-    useEffect(()=>{
+    useEffect(() => {
         let isMounted = true
 
         Promise.all([
@@ -151,17 +150,17 @@ const CreateBond = () => {
             <form>
                 <Box sx={{
                     display: 'grid',
-                    gridTemplateColumns: {xs: '1fr', md: '1fr 1fr'},
-                    gap:'30px',
+                    gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                    gap: '30px',
                     padding: '15px',
                     boxShadow: 'rgba(100,100,111,0.2) 0px 7px 29px 0px',
                 }}>
-                    <Box sx={{ gridColumn: {md: '1/-1'} }}>
+                    <Box sx={{ gridColumn: { md: '1/-1' } }}>
                         <Controller
                             name='isin'
                             control={control}
-                            render={( {field} ) => (
-                                <TextForm 
+                            render={({ field }) => (
+                                <TextForm
                                     label='ISIN'
                                     name={field.name}
                                     value={field.value}
@@ -171,17 +170,17 @@ const CreateBond = () => {
                                     helperText={errors.isin?.message}
                                 />
                             )}
-                        > 
+                        >
                         </Controller>
                     </Box>
                     <Controller
                         name='issuer'
                         control={control}
-                        render={( {field} ) => (
-                            <SelectForm 
-                                label={'Issuer'} 
+                        render={({ field }) => (
+                            <SelectForm
+                                label={'Issuer'}
                                 options={issuers}
-                                name={field.name} 
+                                name={field.name}
                                 value={field.value}
                                 onChange={field.onChange}
                                 onBlur={field.onBlur}
@@ -194,11 +193,11 @@ const CreateBond = () => {
                     <Controller
                         name="bond_type"
                         control={control}
-                        render={( {field} ) => (
-                            <SelectForm 
+                        render={({ field }) => (
+                            <SelectForm
                                 label={'Bond Type'}
                                 options={meta.bond_types}
-                                name={field.name} 
+                                name={field.name}
                                 value={field.value}
                                 onChange={field.onChange}
                                 onBlur={field.onBlur}
@@ -211,8 +210,8 @@ const CreateBond = () => {
                     <Controller
                         name="face_value"
                         control={control}
-                        render={( {field} ) => (
-                            <TextForm 
+                        render={({ field }) => (
+                            <TextForm
                                 label='Face Value'
                                 name={field.name}
                                 value={field.value}
@@ -227,8 +226,8 @@ const CreateBond = () => {
                     <Controller
                         name="coupon_rate"
                         control={control}
-                        render={( {field} ) => (
-                            <TextForm 
+                        render={({ field }) => (
+                            <TextForm
                                 label='Coupon Rate'
                                 name={field.name}
                                 value={field.value}
@@ -243,7 +242,7 @@ const CreateBond = () => {
                     <Controller
                         name="issue_date"
                         control={control}
-                        render={( {field} ) => (
+                        render={({ field }) => (
                             <DatePickerForm
                                 label={'Issue Date'}
                                 name={field.name}
@@ -258,7 +257,7 @@ const CreateBond = () => {
                     <Controller
                         name="maturity_date"
                         control={control}
-                        render={( {field} ) => (
+                        render={({ field }) => (
                             <DatePickerForm
                                 label='Maturity Date'
                                 name={field.name}
