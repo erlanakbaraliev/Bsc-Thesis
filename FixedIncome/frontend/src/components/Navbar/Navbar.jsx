@@ -9,7 +9,6 @@ import { IconButton, Avatar, MenuItem, Menu as MuiMenu, Button } from '@mui/mate
 import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import LogoutIcon from '@mui/icons-material/Logout';
-import LoginIcon from '@mui/icons-material/Login';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 
@@ -17,7 +16,7 @@ import Menu from './Menu';
 import ShortMenu from './ShortMenu';
 import logo from '../../assets/money.png';
 import { useAuth } from '../../hooks/useAuth';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 const drawerWidth = 240;
 const shortDrawerWidth = 80
@@ -28,6 +27,8 @@ export default function Navbar({ content, themeMode, onToggleTheme }) {
   const { user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isLoginRoute = location.pathname === '/login' || location.pathname === '/login/';
 
   const handleAvatarClick = (e) => setAnchorEl(e.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -41,6 +42,10 @@ export default function Navbar({ content, themeMode, onToggleTheme }) {
     logout();
     navigate('/login');
     setIsBigMenu(false);
+  }
+
+  if (isLoginRoute) {
+    return <Box sx={{ minHeight: '100vh' }}>{content}</Box>;
   }
 
   return (
@@ -73,44 +78,29 @@ export default function Navbar({ content, themeMode, onToggleTheme }) {
             >
               {themeMode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
-            {user ? (
-              <>
-                <IconButton onClick={handleAvatarClick} size="small">
-                  <Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.dark', fontSize: 14 }}>
-                    {user[0].toUpperCase()}
-                  </Avatar>
-                </IconButton>
+            <IconButton onClick={handleAvatarClick} size="small">
+              <Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.dark', fontSize: 14 }}>
+                {user?.[0]?.toUpperCase() ?? '?'}
+              </Avatar>
+            </IconButton>
 
-                <MuiMenu
-                  anchorEl={anchorEl}
-                  open={Boolean(anchorEl)}
-                  onClose={handleMenuClose}
-                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                  slotProps={{ paper: {elevation: 2, sx: {mt: 1, minWidth: 180}} }}
-                >
-                  <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant='body2' fontWeight={600}>{user}</Typography>
-                    <Typography variant='caption' color="text.secondary">Signed in</Typography>
-                  </Box>
-                  <MenuItem onClick={handleLogout} sx={{ gap: 1.5, mt:0.5, color:'error.main' }}>
-                    <LogoutIcon fontSize="small"/>
-                    Sign out
-                  </MenuItem>
-                </MuiMenu>
-              </>
-            ): (
-              <Button
-                variant="outlined"
-                color="primary"
-                startIcon={<LoginIcon/>}
-                onClick={() => navigate('/login')}
-                size="small"
-                sx={{ borderWidth: 1.5 }}
-              >
-                  Sign in
-              </Button>
-            )}
+            <MuiMenu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              slotProps={{ paper: {elevation: 2, sx: {mt: 1, minWidth: 180}} }}
+            >
+              <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography variant='body2' fontWeight={600}>{user}</Typography>
+                <Typography variant='caption' color="text.secondary">Signed in</Typography>
+              </Box>
+              <MenuItem onClick={handleLogout} sx={{ gap: 1.5, mt:0.5, color:'error.main' }}>
+                <LogoutIcon fontSize="small"/>
+                Sign out
+              </MenuItem>
+            </MuiMenu>
 
         </Toolbar>
       </AppBar>
