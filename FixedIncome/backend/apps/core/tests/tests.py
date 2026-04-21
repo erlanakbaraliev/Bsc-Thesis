@@ -6,14 +6,18 @@ from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.models import Bond, Issuer, Transaction
+from apps.core.models import Bond, Issuer, Transaction, UserProfile
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def auth_client(user: User) -> APIClient:
+def auth_client(user: User, role: str = UserProfile.ROLE_ADMIN) -> APIClient:
+    profile = user.profile
+    if profile.role != role:
+        profile.role = role
+        profile.save(update_fields=["role"])
     client = APIClient()
     refresh = RefreshToken.for_user(user)
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
@@ -892,3 +896,94 @@ class MetaViewTest(APITestCase):
         self.client.credentials()  # clear auth
         response = self.client.get("/api/meta/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class RBACPermissionsTest(APITestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_user(username="admin", password="pass")
+        self.editor_user = User.objects.create_user(username="editor", password="pass")
+        self.viewer_user = User.objects.create_user(username="viewer", password="pass")
+
+        self.admin_client = auth_client(self.admin_user, UserProfile.ROLE_ADMIN)
+        self.editor_client = auth_client(self.editor_user, UserProfile.ROLE_EDITOR)
+        self.viewer_client = auth_client(self.viewer_user, UserProfile.ROLE_VIEWER)
+
+        self.issuer = make_issuer(name="RBAC Issuer")
+        self.bond = make_bond(self.issuer, isin="US9999999999")
+        self.admin_tx = Transaction.objects.create(
+            user=self.admin_user, bond=self.bond, action="BUY", quantity=1, price="100.00"
+        )
+        self.editor_tx = Transaction.objects.create(
+            user=self.editor_user, bond=self.bond, action="BUY", quantity=2, price="101.00"
+        )
+
+    def test_users_endpoint_admin_only(self):
+        self.assertEqual(self.admin_client.get("/users/").status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            self.editor_client.get("/users/").status_code, status.HTTP_403_FORBIDDEN
+        )
+        self.assertEqual(
+            self.viewer_client.get("/users/").status_code, status.HTTP_403_FORBIDDEN
+        )
+
+    def test_issuer_create_allows_editor_denies_viewer(self):
+        payload = {
+            "name": "Role Corp",
+            "country": "US",
+            "industry": "Technology",
+            "credit_rating": "AA",
+        }
+        self.assertEqual(
+            self.editor_client.post("/issuers/", payload, format="json").status_code,
+            status.HTTP_201_CREATED,
+        )
+        self.assertEqual(
+            self.viewer_client.post("/issuers/", payload, format="json").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_bond_delete_admin_only(self):
+        editor_response = self.editor_client.delete(f"/bonds/{self.bond.pk}/")
+        self.assertEqual(editor_response.status_code, status.HTTP_403_FORBIDDEN)
+        admin_response = self.admin_client.delete(f"/bonds/{self.bond.pk}/")
+        self.assertEqual(admin_response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_bulk_delete_admin_only(self):
+        bond2 = make_bond(self.issuer, isin="US8888888888")
+        editor_response = self.editor_client.delete(
+            "/bonds/bulk_delete/", {"ids": [bond2.pk]}, format="json"
+        )
+        self.assertEqual(editor_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_import_preview_denied_for_viewer(self):
+        response = self.viewer_client.post("/bonds/import_preview/", {}, format="multipart")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_transactions_list_respects_ownership_for_non_admin(self):
+        admin_response = self.admin_client.get("/transactions/")
+        editor_response = self.editor_client.get("/transactions/")
+        viewer_response = self.viewer_client.get("/transactions/")
+
+        self.assertEqual(len(admin_response.data), 2)
+        self.assertEqual(len(editor_response.data), 1)
+        self.assertEqual(editor_response.data[0]["id"], self.editor_tx.id)
+        self.assertEqual(len(viewer_response.data), 0)
+
+    def test_editor_cannot_modify_other_users_transaction(self):
+        response = self.editor_client.patch(
+            f"/transactions/{self.admin_tx.pk}/", {"quantity": 22}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_viewer_cannot_create_transaction(self):
+        response = self.viewer_client.post(
+            "/transactions/",
+            {"bond": self.bond.pk, "action": "BUY", "quantity": 3, "price": "102.00"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_users_me_returns_role(self):
+        response = self.editor_client.get("/users/me/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["role"], UserProfile.ROLE_EDITOR)

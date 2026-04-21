@@ -5,9 +5,37 @@ from .models import Bond, Issuer, Transaction
 
 
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(source="profile.role", required=False)
+
     class Meta:
         model = User
-        fields = ["username", "email", "groups"]
+        fields = ["id", "username", "email", "groups", "role"]
+
+    def create(self, validated_data):
+        profile_data = validated_data.pop("profile", {})
+        user = super().create(validated_data)
+        role = profile_data.get("role")
+        if role:
+            user.profile.role = role
+            user.profile.save(update_fields=["role"])
+        return user
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop("profile", {})
+        user = super().update(instance, validated_data)
+        role = profile_data.get("role")
+        if role:
+            user.profile.role = role
+            user.profile.save(update_fields=["role"])
+        return user
+
+
+class MeSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(source="profile.role")
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "email", "role"]
 
 
 class IssuerSerializer(serializers.ModelSerializer):
@@ -59,3 +87,4 @@ class TransactionSerializer(serializers.ModelSerializer):
             "price",
             "created_at",
         ]
+        read_only_fields = ["user", "username"]

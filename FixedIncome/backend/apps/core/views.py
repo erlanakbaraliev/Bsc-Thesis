@@ -17,11 +17,20 @@ from rest_framework.views import APIView, Response
 
 from apps.core.utils.utils import decode_csv_file, parse_date
 
-from .models import Bond, Issuer, Transaction
+from .models import Bond, Issuer, Transaction, UserProfile
+from .permissions import (
+    CanCreateTransaction,
+    CanImportExportBonds,
+    CanWriteReferenceData,
+    IsAdminRole,
+    IsOwnerOrAdmin,
+    user_role,
+)
 from .pagination import StandardResultsSetPagination
 from .serializers import (
     BondSerializer,
     IssuerSerializer,
+    MeSerializer,
     TransactionSerializer,
     UserSerializer,
 )
@@ -35,11 +44,15 @@ class UserListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        if not IsAdminRole().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         users = User.objects.all().order_by("id")
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
 
     def post(self, request):
+        if not IsAdminRole().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -51,11 +64,15 @@ class UserDetailAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
+        if not IsAdminRole().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         user = get_object_or_404(User, pk=pk)
         serializer = UserSerializer(user)
         return Response(serializer.data)
 
     def patch(self, request, pk):
+        if not IsAdminRole().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         user = get_object_or_404(User, pk=pk)
         serializer = UserSerializer(user, data=request.data, partial=True)
 
@@ -65,9 +82,18 @@ class UserDetailAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
+        if not IsAdminRole().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         user = get_object_or_404(User, pk=pk)
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class MeAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        serializer = MeSerializer(request.user)
+        return Response(serializer.data)
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +110,8 @@ class IssuerListCreateAPIView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
+        if not CanWriteReferenceData().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = IssuerSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -100,6 +128,8 @@ class IssuerDetailAPIView(APIView):
         return Response(serializer.data)
 
     def patch(self, request, pk):
+        if not CanWriteReferenceData().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         issuer = get_object_or_404(Issuer, pk=pk)
         serializer = IssuerSerializer(issuer, data=request.data, partial=True)
 
@@ -109,6 +139,8 @@ class IssuerDetailAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
+        if not IsAdminRole().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         issuer = get_object_or_404(Issuer, pk=pk)
         issuer.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -204,6 +236,8 @@ class BondListCreateAPIView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
+        if not CanWriteReferenceData().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = BondSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -220,6 +254,8 @@ class BondDetailView(APIView):
         return Response(serializer.data)
 
     def patch(self, request, pk):
+        if not CanWriteReferenceData().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         bond = get_object_or_404(Bond, pk=pk)
         serializer = BondSerializer(bond, data=request.data, partial=True)
         if serializer.is_valid():
@@ -228,6 +264,8 @@ class BondDetailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
+        if not IsAdminRole().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         bond = get_object_or_404(Bond, pk=pk)
         bond.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -242,6 +280,8 @@ class BondBulkDeleteAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request):
+        if not IsAdminRole().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         ids = request.data.get("ids", [])
         Bond.objects.filter(id__in=ids).delete()
         return Response(status=204)
@@ -294,6 +334,8 @@ class BondExportCsvAPIView(APIView):
     ]
 
     def get(self, request):
+        if not CanImportExportBonds().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         queryset = Bond.objects.all().select_related("issuer")
 
         for backend in list(self.filter_backends):
@@ -350,6 +392,8 @@ class BondImportPreviewAPIView(APIView):
     ]  # Tells DRF to expect multipart/form-data (files)
 
     def post(self, request):
+        if not CanImportExportBonds().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         file_obj = request.FILES.get("file")
         if not file_obj:
             return Response({"error": "No file uploaded"})
@@ -381,6 +425,8 @@ class BondImportCsvAPIView(APIView):
     parser_classes = [rest_framework.parsers.MultiPartParser]
 
     def post(self, request):
+        if not CanImportExportBonds().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         file_obj = request.FILES.get("file")
         if not file_obj:
             return Response({"error": "No file uploaded"})
@@ -463,14 +509,19 @@ class TransactionListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        role = user_role(request.user)
         transactions = Transaction.objects.all().order_by("id")
+        if role != UserProfile.ROLE_ADMIN:
+            transactions = transactions.filter(user=request.user)
         serializer = TransactionSerializer(transactions, many=True)
         return Response(serializer.data)
 
     def post(self, request):
+        if not CanCreateTransaction().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = TransactionSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -480,11 +531,15 @@ class TransactionDetailAPIView(APIView):
 
     def get(self, request, pk):
         transaction = get_object_or_404(Transaction, pk=pk)
+        if not IsOwnerOrAdmin().has_object_permission(request, self, transaction):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = TransactionSerializer(transaction)
         return Response(serializer.data)
 
     def patch(self, request, pk):
         transaction = get_object_or_404(Transaction, pk=pk)
+        if not IsOwnerOrAdmin().has_object_permission(request, self, transaction):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = TransactionSerializer(transaction, data=request.data, partial=True)
 
         if serializer.is_valid():
@@ -494,6 +549,8 @@ class TransactionDetailAPIView(APIView):
 
     def delete(self, request, pk):
         transaction = get_object_or_404(Transaction, pk=pk)
+        if not IsOwnerOrAdmin().has_object_permission(request, self, transaction):
+            return Response(status=status.HTTP_403_FORBIDDEN)
         transaction.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
