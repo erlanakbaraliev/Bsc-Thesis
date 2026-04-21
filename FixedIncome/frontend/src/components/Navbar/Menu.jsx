@@ -10,9 +10,12 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 import TableViewIcon from '@mui/icons-material/TableView';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import { Link, useLocation } from 'react-router'
+import { useAuth } from '../../hooks/useAuth';
 
 export default function Menu() {
   const [open, setOpen] = React.useState(true);
+  const { role } = useAuth();
+  const canWriteReferenceData = role === 'ADMIN' || role === 'EDITOR';
 
   const handleClick = () => {
     setOpen(!open);
@@ -43,22 +46,26 @@ export default function Menu() {
             <ListItemText primary="Table View" />
           </ListItemButton>
         </List>
-        <List component="div" disablePadding>
-          <ListItemButton sx={{ pl: 4 }} component={Link} to="/create/issuer" selected={path === "/create/issuer"}>
-            <ListItemIcon>
-              <AddBoxIcon />
-            </ListItemIcon>
-            <ListItemText primary="Create Issuer" />
-          </ListItemButton>
-        </List>
-        <List component="div" disablePadding>
-          <ListItemButton sx={{ pl: 4 }} component={Link} to="/create/bond" selected={path === "/create/bond"}>
-            <ListItemIcon>
-              <AddBoxIcon />
-            </ListItemIcon>
-            <ListItemText primary="Create Bond" />
-          </ListItemButton>
-        </List>
+        {canWriteReferenceData && (
+          <List component="div" disablePadding>
+            <ListItemButton sx={{ pl: 4 }} component={Link} to="/create/issuer" selected={path === "/create/issuer"}>
+              <ListItemIcon>
+                <AddBoxIcon />
+              </ListItemIcon>
+              <ListItemText primary="Create Issuer" />
+            </ListItemButton>
+          </List>
+        )}
+        {canWriteReferenceData && (
+          <List component="div" disablePadding>
+            <ListItemButton sx={{ pl: 4 }} component={Link} to="/create/bond" selected={path === "/create/bond"}>
+              <ListItemIcon>
+                <AddBoxIcon />
+              </ListItemIcon>
+              <ListItemText primary="Create Bond" />
+            </ListItemButton>
+          </List>
+        )}
 
       </Collapse>
     </List>

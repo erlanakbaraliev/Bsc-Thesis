@@ -8,6 +8,8 @@ import LoginPage from './components/LoginPage.jsx'
 import { AuthProvider } from './context/AuthProvider.jsx'
 import PrivateRouter from './components/PrivateRoute.jsx'
 
+const WRITE_ROLES = ['ADMIN', 'EDITOR']
+
 function App({ themeMode, onToggleTheme }) {
   return (
     <AuthProvider>
@@ -23,12 +25,12 @@ function App({ themeMode, onToggleTheme }) {
                 </PrivateRouter>
               }/>
               <Route path="/create/issuer/" element={
-                <PrivateRouter>
+                <PrivateRouter allowedRoles={WRITE_ROLES}>
                   <CreateIssuer/>
                 </PrivateRouter>
               }/> 
               <Route path="/create/bond/" element={
-                <PrivateRouter>
+                <PrivateRouter allowedRoles={WRITE_ROLES}>
                   <CreateBond/>
                 </PrivateRouter>
               }/> 
