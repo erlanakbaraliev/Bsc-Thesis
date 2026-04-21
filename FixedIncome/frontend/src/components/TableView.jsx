@@ -46,9 +46,14 @@ import { getOrdering, getColumnFilters } from '../utils/Utils.js'
 import { handleExportRows } from '../utils/CsvExportUtils.js';
 import { formatDateParam, formatDateTimeParam, formatDateTimeParamAPICall } from '../utils/DateUtils.js';
 import { API_ENDPOINTS } from '../config/Api.js';
+import { useAuth } from '../hooks/useAuth.js';
 
 
 const TableView = () => {
+  const { role } = useAuth();
+  const canEdit = role === 'ADMIN' || role === 'EDITOR';
+  const canImportExport = role === 'ADMIN' || role === 'EDITOR';
+  const canBulkDelete = role === 'ADMIN';
   //data and fetching state
   const [data, setData] = useState([]);
   const [isError, setIsError] = useState(false);
@@ -326,7 +331,7 @@ const TableView = () => {
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <Box sx={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', padding: '8px 0' }}>
 
-          {Object.keys(rowSelection).length > 0 && (
+          {canBulkDelete && Object.keys(rowSelection).length > 0 && (
             <Button
               variant='contained'
               color='error'
@@ -339,18 +344,20 @@ const TableView = () => {
           )}
 
           {/* ---------------- EXPORT DROPDOWN ---------------- */}
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<FileDownloadIcon />}
-            onClick={handleExportMenuClick}
-          >
-            Export Data
-          </Button>
+          {canImportExport && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<FileDownloadIcon />}
+              onClick={handleExportMenuClick}
+            >
+              Export Data
+            </Button>
+          )}
 
           <Menu
             anchorEl={exportAnchorEl}
-            open={openExportMenu}
+            open={canImportExport && openExportMenu}
             onClose={handleExportMenuClose}
           >
 
@@ -474,22 +481,24 @@ const TableView = () => {
           </Popover>
 
           {/* ---- Csv Uploader ---- */}
-          <Button
-            variant='contained'
-            color='primary'
-            size='small'
-            startIcon={<CloudUploadIcon />}
-            onClick={() => setIsImportModalOpen(true)}
-          >
-            Import Bonds
-          </Button>
+          {canImportExport && (
+            <Button
+              variant='contained'
+              color='primary'
+              size='small'
+              startIcon={<CloudUploadIcon />}
+              onClick={() => setIsImportModalOpen(true)}
+            >
+              Import Bonds
+            </Button>
+          )}
         </Box>
 
       </LocalizationProvider>
     ),
     // Edit modal
-    enableEditing: true,
-    enableRowActions: true,
+    enableEditing: canEdit,
+    enableRowActions: canEdit,
     enableColumnPinning: true,
     renderRowActions: ({ row, table }) => (
       <Tooltip title='Edit Bond'>

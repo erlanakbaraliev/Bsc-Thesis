@@ -24,7 +24,7 @@ const shortDrawerWidth = 80
 export default function Navbar({ content, themeMode, onToggleTheme }) {
   const [isBigMenu, setIsBigMenu] = useState(false)
 
-  const { user, logout } = useAuth();
+  const { user, role, logout } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,7 +94,7 @@ export default function Navbar({ content, themeMode, onToggleTheme }) {
             >
               <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Typography variant='body2' fontWeight={600}>{user}</Typography>
-                <Typography variant='caption' color="text.secondary">Signed in</Typography>
+                <Typography variant='caption' color="text.secondary">{role || 'Signed in'}</Typography>
               </Box>
               <MenuItem onClick={handleLogout} sx={{ gap: 1.5, mt:0.5, color:'error.main' }}>
                 <LogoutIcon fontSize="small"/>

@@ -26,7 +26,7 @@ describe('Navbar', () => {
     vi.clearAllMocks();
   });
 
-  it('renders signed-out sign-in button', () => {
+  it('renders avatar button for signed-out state', () => {
     renderWithProviders(
       <Navbar
         content={<div>content</div>}
@@ -35,7 +35,7 @@ describe('Navbar', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '?' })).toBeInTheDocument();
   });
 
   it('triggers theme toggle callback from icon button', async () => {
