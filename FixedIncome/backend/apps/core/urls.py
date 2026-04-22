@@ -54,4 +54,9 @@ urlpatterns = [
         views.BondImportCsvAPIView.as_view(),
         name="bond-import-csv",
     ),
+    path(
+        "bonds/import_csv/skipped/<str:token>/",
+        views.BondImportSkippedCsvDownloadAPIView.as_view(),
+        name="bond-import-skipped-csv-download",
+    ),
 ]

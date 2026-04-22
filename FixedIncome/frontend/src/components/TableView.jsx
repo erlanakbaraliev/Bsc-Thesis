@@ -555,7 +555,6 @@ const TableView = () => {
             <CsvUploader
               onSuccess={() => {
                 setRefreshKey(prev => prev + 1)
-                setIsImportModalOpen(false)
               }}
             />
           </Box>
