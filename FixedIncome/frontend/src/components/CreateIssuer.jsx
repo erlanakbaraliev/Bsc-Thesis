@@ -31,7 +31,7 @@ const CreateIssuer = () => {
         name: yup
             .string()
             .min(2, 'Must be at least 2 chars')
-            .max(100, 'Must be less than 100 chars')
+            .max(255, 'Must be less than 255 chars')
             .required('Required field'),
         country: yup
             .string()
