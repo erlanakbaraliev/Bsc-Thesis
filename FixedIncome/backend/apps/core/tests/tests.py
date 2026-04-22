@@ -2,6 +2,8 @@ import csv
 import io
 
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -58,6 +60,111 @@ def make_csv_bytes(rows: list[dict], fieldnames: list[str] | None = None) -> byt
     writer.writerows(rows)
     return buf.getvalue().encode("utf-8")
 
+
+# ---------------------------------------------------------------------------
+# Model constraints
+# ---------------------------------------------------------------------------
+
+
+class ModelConstraintTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="constraint-user", password="pass")
+        self.issuer = make_issuer(name="Constraint Issuer")
+        self.bond = make_bond(self.issuer, isin="US0000000001")
+
+    def test_issuer_name_must_be_unique(self):
+        duplicate = Issuer(
+            name="Constraint Issuer",
+            country="US",
+            industry="Technology",
+            credit_rating="AA",
+        )
+        with self.assertRaises(ValidationError):
+            duplicate.full_clean()
+
+    def test_issuer_name_min_length_validator(self):
+        issuer = Issuer(name="A", country="US", industry="Technology", credit_rating="AA")
+        with self.assertRaises(ValidationError):
+            issuer.full_clean()
+
+    def test_bond_isin_regex_validator(self):
+        bond = Bond(
+            isin="INVALID-ISIN",
+            issuer=self.issuer,
+            bond_type="CORP",
+            face_value="1000.00",
+            coupon_rate="5.00",
+            issue_date="2020-01-01",
+            maturity_date="2030-01-01",
+        )
+        with self.assertRaises(ValidationError):
+            bond.full_clean()
+
+    def test_bond_date_constraint_maturity_after_issue(self):
+        bond = Bond(
+            isin="US0000000002",
+            issuer=self.issuer,
+            bond_type="CORP",
+            face_value="1000.00",
+            coupon_rate="5.00",
+            issue_date="2030-01-01",
+            maturity_date="2020-01-01",
+        )
+        with self.assertRaises(ValidationError):
+            bond.full_clean()
+
+    def test_bond_face_value_must_be_positive(self):
+        bond = Bond(
+            isin="US0000000003",
+            issuer=self.issuer,
+            bond_type="CORP",
+            face_value="0.00",
+            coupon_rate="5.00",
+            issue_date="2020-01-01",
+            maturity_date="2030-01-01",
+        )
+        with self.assertRaises(ValidationError):
+            bond.full_clean()
+
+    def test_bond_coupon_rate_range(self):
+        below = Bond(
+            isin="US0000000004",
+            issuer=self.issuer,
+            bond_type="CORP",
+            face_value="1000.00",
+            coupon_rate="-0.01",
+            issue_date="2020-01-01",
+            maturity_date="2030-01-01",
+        )
+        above = Bond(
+            isin="US0000000005",
+            issuer=self.issuer,
+            bond_type="CORP",
+            face_value="1000.00",
+            coupon_rate="100.01",
+            issue_date="2020-01-01",
+            maturity_date="2030-01-01",
+        )
+
+        with self.assertRaises(ValidationError):
+            below.full_clean()
+        with self.assertRaises(ValidationError):
+            above.full_clean()
+
+    def test_transaction_quantity_must_be_positive(self):
+        tx = Transaction(
+            user=self.user,
+            bond=self.bond,
+            action="BUY",
+            quantity=0,
+            price="100.00",
+        )
+        with self.assertRaises(ValidationError):
+            tx.full_clean()
+
+    def test_user_profile_one_to_one_constraint(self):
+        with self.assertRaises(IntegrityError):
+            UserProfile.objects.create(user=self.user, role=UserProfile.ROLE_ADMIN)
 
 # ---------------------------------------------------------------------------
 # Authentication guard tests  (unauthenticated → 401)
@@ -678,6 +785,71 @@ class BondImportCsvTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         bond = Bond.objects.get(isin="XS0000000001")
         self.assertEqual(str(bond.coupon_rate), "6.00")
+        self.assertEqual(response.data["created_count"], 0)
+        self.assertEqual(response.data["updated_count"], 1)
+        self.assertEqual(response.data["skipped_count"], 0)
+
+    def test_import_partially_updates_existing_bond_only_provided_fields(self):
+        issuer = make_issuer(name="Original Issuer", country="DE")
+        bond = make_bond(
+            issuer=issuer,
+            isin="XS1111111111",
+            bond_type="CORP",
+            face_value="1000.00",
+            coupon_rate="5.00",
+            issue_date="2020-01-01",
+            maturity_date="2030-01-01",
+        )
+
+        # Existing bond update: only coupon and issuer should change.
+        rows = [
+            {
+                "ISIN": "XS1111111111",
+                "Issuer": "New Issuer",
+                "Country": "FR",
+                "Coupon": "7.25",
+            }
+        ]
+        fieldnames = ["ISIN", "Issuer", "Country", "Coupon"]
+
+        response = self._upload_csv(rows, fieldnames=fieldnames)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["created_count"], 0)
+        self.assertEqual(response.data["updated_count"], 1)
+        self.assertEqual(response.data["skipped_count"], 0)
+
+        bond.refresh_from_db()
+        self.assertEqual(bond.issuer.name, "New Issuer")
+        self.assertEqual(str(bond.coupon_rate), "7.25")
+        # Not provided in CSV row, so the original values should stay.
+        self.assertEqual(str(bond.face_value), "1000.00")
+        self.assertEqual(str(bond.issue_date), "2020-01-01")
+        self.assertEqual(str(bond.maturity_date), "2030-01-01")
+
+    def test_import_skips_new_bond_when_required_fields_missing(self):
+        rows = [
+            {
+                "ISIN": "XS2222222222",
+                "Issuer": "Missing Fields Issuer",
+                "Country": "HU",
+                "Issue Date": "01/01/2022",
+                "Maturity Date": "01/01/2032",
+                # Missing Face Value and Coupon for new bond.
+            }
+        ]
+        fieldnames = ["ISIN", "Issuer", "Country", "Issue Date", "Maturity Date"]
+        response = self._upload_csv(rows, fieldnames=fieldnames)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["created_count"], 0)
+        self.assertEqual(response.data["updated_count"], 0)
+        self.assertEqual(response.data["skipped_count"], 1)
+        self.assertEqual(response.data["total_rows"], 1)
+        self.assertIn(
+            "Missing required fields for new bond",
+            response.data["skipped"][0]["errors"],
+        )
+        self.assertFalse(Bond.objects.filter(isin="XS2222222222").exists())
 
     def test_import_reuses_existing_issuer(self):
         existing_issuer = Issuer.objects.create(
@@ -757,19 +929,28 @@ class BondImportCsvTest(APITestCase):
             self.assertTrue(Bond.objects.filter(isin=isin).exists(), f"Missing {isin}")
 
     def test_import_defaults_for_missing_optional_fields(self):
-        """Industry / Rating / Type missing → defaults from INDUSTRY_MAP / RATING_MAP / BOND_TYPE_MAP."""
+        """Industry / Rating / Country / Bond Type  → defaults from INDUSTRY_MAP / RATING_MAP / country: "Other"" / BOND_TYPE_MAP."""
         rows = [
             {
-                "ISIN": "XS0000000020",
+                "ISIN": "KG0378331022",
                 "Issuer": "Default Issuer",
                 "Issue Date": "01/01/2022",
                 "Maturity Date": "01/01/2032",
+                "Face Value": "1000.00",
+                "Coupon": "5.00",
             }
         ]
-        fieldnames = ["ISIN", "Issuer", "Issue Date", "Maturity Date"]
+        fieldnames = [
+            "ISIN",
+            "Issuer",
+            "Issue Date",
+            "Maturity Date",
+            "Face Value",
+            "Coupon",
+        ]
         response = self._upload_csv(rows, fieldnames=fieldnames)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        bond = Bond.objects.get(isin="XS0000000020")
+        bond = Bond.objects.get(isin="KG0378331022")
         self.assertEqual(bond.bond_type, "CORP")  # default
 
     # -- error paths ---------------------------------------------------------
@@ -911,14 +1092,24 @@ class RBACPermissionsTest(APITestCase):
         self.issuer = make_issuer(name="RBAC Issuer")
         self.bond = make_bond(self.issuer, isin="US9999999999")
         self.admin_tx = Transaction.objects.create(
-            user=self.admin_user, bond=self.bond, action="BUY", quantity=1, price="100.00"
+            user=self.admin_user,
+            bond=self.bond,
+            action="BUY",
+            quantity=1,
+            price="100.00",
         )
         self.editor_tx = Transaction.objects.create(
-            user=self.editor_user, bond=self.bond, action="BUY", quantity=2, price="101.00"
+            user=self.editor_user,
+            bond=self.bond,
+            action="BUY",
+            quantity=2,
+            price="101.00",
         )
 
     def test_users_endpoint_admin_only(self):
-        self.assertEqual(self.admin_client.get("/users/").status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            self.admin_client.get("/users/").status_code, status.HTTP_200_OK
+        )
         self.assertEqual(
             self.editor_client.get("/users/").status_code, status.HTTP_403_FORBIDDEN
         )
@@ -956,7 +1147,9 @@ class RBACPermissionsTest(APITestCase):
         self.assertEqual(editor_response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_import_preview_denied_for_viewer(self):
-        response = self.viewer_client.post("/bonds/import_preview/", {}, format="multipart")
+        response = self.viewer_client.post(
+            "/bonds/import_preview/", {}, format="multipart"
+        )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_transactions_list_respects_ownership_for_non_admin(self):

@@ -3,6 +3,7 @@ import csv
 import rest_framework
 import rest_framework.parsers
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
@@ -18,6 +19,7 @@ from rest_framework.views import APIView, Response
 from apps.core.utils.utils import decode_csv_file, parse_date
 
 from .models import Bond, Issuer, Transaction, UserProfile
+from .pagination import StandardResultsSetPagination
 from .permissions import (
     CanCreateTransaction,
     CanImportExportBonds,
@@ -26,7 +28,6 @@ from .permissions import (
     IsOwnerOrAdmin,
     user_role,
 )
-from .pagination import StandardResultsSetPagination
 from .serializers import (
     BondSerializer,
     IssuerSerializer,
@@ -87,6 +88,7 @@ class UserDetailAPIView(APIView):
         user = get_object_or_404(User, pk=pk)
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class MeAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -381,7 +383,7 @@ class BondExportCsvAPIView(APIView):
 
 
 # ---------------------------------------------------------------------------
-# Bonds/Export CSV
+# Bonds/Import_Preview CSV
 # ---------------------------------------------------------------------------
 
 
@@ -404,7 +406,7 @@ class BondImportPreviewAPIView(APIView):
             reader = decode_csv_file(file_obj)
             csv_isins = [r.get("ISIN") for r in reader if r.get("ISIN")]
         except Exception as e:
-            return Response({"error": str(e)}, status=400)
+            return Response({"error": {str(e)}}, status=400)
 
         total_rows = len(csv_isins)
         existing_count = Bond.objects.filter(isin__in=csv_isins).count()
@@ -434,70 +436,162 @@ class BondImportCsvAPIView(APIView):
             return Response({"error": "File must be .csv"}, status=400)
 
         try:
-            reader = decode_csv_file(file_obj)
+            reader = list(decode_csv_file(file_obj))
         except Exception as e:
-            return Response({"error": {str(e)}}, status=400)
+            return Response({"error": str(e)}, status=400)
 
-        new_bonds = []
+        to_create = []
+        to_update = []  # list of (bond_instance, fields_to_update)
+        skipped_rows = []
+
         existing_issuers = {i.name: i for i in Issuer.objects.all()}
+
+        # Fetch all existing bonds that appear in the CSV upfront,
+        # so we can diff against them without hitting the DB in the loop.
+        all_isns = [r.get("ISIN") for r in reader if r.get("ISIN")]
+        existing_bonds = {b.isin: b for b in Bond.objects.filter(isin__in=all_isns)}
 
         with transaction.atomic():
             for r in reader:
+                isin = r.get("ISIN")
                 issuer_name = r.get("Issuer")
-                if not issuer_name or not r.get("ISIN"):
+
+                if not issuer_name or not isin:
+                    skipped_rows.append(
+                        {"isin": isin, "errors": "ISIN or Issuer is not specified"}
+                    )
                     continue
 
-                raw_industry = r.get("Industry", "Other")
-                raw_rating = r.get("Rating", "Lower Medium Grade (BBB)")
-                raw_type = r.get("Type", "Corporate")
-
-                country = r.get("Country", "Other")
-                industry = INDUSTRY_MAP.get(raw_industry, "Other")
-                rating = RATING_MAP.get(raw_rating, "BBB")
+                # --- Resolve issuer ---
+                raw_industry = r.get("Industry")
+                raw_rating = r.get("Rating")
+                raw_type = r.get("Type")
+                country = r.get("Country")
 
                 if issuer_name not in existing_issuers:
                     issuer_obj, _ = Issuer.objects.get_or_create(
                         name=issuer_name,
                         defaults={
-                            "country": country,
-                            "industry": industry,
-                            "credit_rating": rating,
+                            "country": country or "Other",
+                            "industry": INDUSTRY_MAP.get(raw_industry, "Other"),
+                            "credit_rating": RATING_MAP.get(raw_rating, "BBB"),
                         },
                     )
                     existing_issuers[issuer_name] = issuer_obj
 
+                # --- Parse dates only if provided ---
                 try:
-                    issue_date = parse_date(r.get("Issue Date", ""))
-                    maturity_date = parse_date(r.get("Maturity Date"))
-                except ValueError:
-                    continue  # skip rows with invalid date format.
+                    issue_date = (
+                        parse_date(r.get("Issue Date"))
+                        if r.get("Issue Date", "").strip()
+                        else None
+                    )
+                    maturity_date = (
+                        parse_date(r.get("Maturity Date"))
+                        if r.get("Maturity Date", "").strip()
+                        else None
+                    )
+                except ValueError as e:
+                    skipped_rows.append({"isin": isin, "errors": str(e)})
+                    continue
 
-                bond = Bond(
-                    isin=r.get("ISIN"),
-                    issuer=existing_issuers[issuer_name],
-                    bond_type=BOND_TYPE_MAP.get(raw_type, "CORP"),
-                    face_value=r.get("Face Value", 0),
-                    coupon_rate=r.get("Coupon", 0),
-                    issue_date=issue_date,
-                    maturity_date=maturity_date,
-                )
-                new_bonds.append(bond)
+                # --- Patch existing bond ---
+                if isin in existing_bonds:
+                    bond = existing_bonds[isin]
+                    updated_fields = []
 
-            Bond.objects.bulk_create(
-                new_bonds,
-                1000,
-                unique_fields=["isin"],
-                update_conflicts=True,
-                update_fields=[
-                    "issuer",
-                    "bond_type",
-                    "face_value",
-                    "coupon_rate",
-                    "issue_date",
-                    "maturity_date",
-                ],
-            )
-        return Response({"message": "Upload complete!"}, status=201)
+                    # Only update fields that were explicitly provided in the CSV row
+                    if issuer_name:
+                        bond.issuer = existing_issuers[issuer_name]
+                        updated_fields.append("issuer")
+                    if raw_type:
+                        bond.bond_type = BOND_TYPE_MAP.get(raw_type, "CORP")
+                        updated_fields.append("bond_type")
+                    if r.get("Face Value", "").strip():
+                        bond.face_value = r.get("Face Value")
+                        updated_fields.append("face_value")
+                    if r.get("Coupon", "").strip():
+                        bond.coupon_rate = r.get("Coupon")
+                        updated_fields.append("coupon_rate")
+                    if issue_date:
+                        bond.issue_date = issue_date
+                        updated_fields.append("issue_date")
+                    if maturity_date:
+                        bond.maturity_date = maturity_date
+                        updated_fields.append("maturity_date")
+
+                    try:
+                        bond.full_clean(validate_unique=False)
+                    except ValidationError as e:
+                        skipped_rows.append({"isin": isin, "errors": e.message_dict})
+                        continue
+
+                    to_update.append((bond, updated_fields))
+
+                # --- Create new bond ---
+                else:
+                    # For new bonds all fields are required — no existing data to fall back on
+                    missing = [
+                        f
+                        for f, v in {
+                            "Face Value": r.get("Face Value", "").strip(),
+                            "Coupon": r.get("Coupon", "").strip(),
+                            "Issue Date": r.get("Issue Date", "").strip(),
+                            "Maturity Date": r.get("Maturity Date", "").strip(),
+                        }.items()
+                        if not v
+                    ]
+                    if missing:
+                        skipped_rows.append(
+                            {
+                                "isin": isin,
+                                "errors": f"Missing required fields for new bond: {', '.join(missing)}",
+                            }
+                        )
+                        continue
+
+                    bond = Bond(
+                        isin=isin,
+                        issuer=existing_issuers[issuer_name],
+                        bond_type=BOND_TYPE_MAP.get(raw_type, "CORP"),
+                        face_value=r.get("Face Value"),
+                        coupon_rate=r.get("Coupon"),
+                        issue_date=issue_date,
+                        maturity_date=maturity_date,
+                    )
+
+                    try:
+                        bond.full_clean(validate_unique=False)
+                    except ValidationError as e:
+                        skipped_rows.append({"isin": isin, "errors": e.message_dict})
+                        continue
+
+                    to_create.append(bond)
+
+            # Bulk create new bonds
+            Bond.objects.bulk_create(to_create, batch_size=1000)
+
+            # Bulk update existing bonds — group by which fields changed to minimise queries
+            fields_map = {}  # frozenset(fields) -> [bond]
+            for bond, fields in to_update:
+                key = frozenset(fields)
+                fields_map.setdefault(key, []).append(bond)
+
+            for fields, bonds in fields_map.items():
+                Bond.objects.bulk_update(bonds, fields=list(fields), batch_size=1000)
+
+        total = len(to_create) + len(to_update)
+        return Response(
+            {
+                "message": "Upload complete!",
+                "total_rows": total + len(skipped_rows),
+                "created_count": len(to_create),
+                "updated_count": len(to_update),
+                "skipped_count": len(skipped_rows),
+                "skipped": skipped_rows,
+            },
+            status=201,
+        )
 
 
 # ---------------------------------------------------------------------------

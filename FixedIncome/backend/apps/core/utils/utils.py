@@ -5,6 +5,8 @@ from datetime import datetime
 
 def parse_date(date):
     """Accepts MM/DD/YY, MM/DD/YYYY, YYYY-MM-DD"""
+    date = date.strip()
+
     DATE_FORMATS = (
         "%m/%d/%y",
         "%m/%d/%Y",
