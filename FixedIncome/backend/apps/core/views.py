@@ -1,11 +1,14 @@
 import csv
+import io
+import uuid
 
 import rest_framework
 import rest_framework.parsers
+from django.core.cache import cache
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.http import StreamingHttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, status
@@ -581,6 +584,31 @@ class BondImportCsvAPIView(APIView):
                 Bond.objects.bulk_update(bonds, fields=list(fields), batch_size=1000)
 
         total = len(to_create) + len(to_update)
+        skipped_csv_url = None
+        if skipped_rows:
+            csv_buffer = io.StringIO()
+            writer = csv.DictWriter(csv_buffer, fieldnames=["ISIN", "Error"])
+            writer.writeheader()
+            for skipped in skipped_rows:
+                errors = skipped.get("errors", "")
+                if isinstance(errors, dict):
+                    error_message = "; ".join(
+                        [f"{field}: {', '.join(messages)}" for field, messages in errors.items()]
+                    )
+                else:
+                    error_message = str(errors)
+                writer.writerow(
+                    {
+                        "ISIN": skipped.get("isin", ""),
+                        "Error": error_message,
+                    }
+                )
+            token = str(uuid.uuid4())
+            cache.set(f"bond_import_skipped_{token}", csv_buffer.getvalue(), timeout=3600)
+            skipped_csv_url = request.build_absolute_uri(
+                f"/bonds/import_csv/skipped/{token}/"
+            )
+
         return Response(
             {
                 "message": "Upload complete!",
@@ -589,9 +617,29 @@ class BondImportCsvAPIView(APIView):
                 "updated_count": len(to_update),
                 "skipped_count": len(skipped_rows),
                 "skipped": skipped_rows,
+                "skipped_csv_url": skipped_csv_url,
             },
             status=201,
         )
+
+
+class BondImportSkippedCsvDownloadAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, token):
+        if not CanImportExportBonds().has_permission(request, self):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        cache_key = f"bond_import_skipped_{token}"
+        csv_content = cache.get(cache_key)
+        if not csv_content:
+            return Response({"error": "Skipped CSV file not found or expired."}, status=404)
+
+        response = HttpResponse(csv_content, content_type="text/csv")
+        response["Content-Disposition"] = (
+            f'attachment; filename="skipped_bonds_{token[:8]}.csv"'
+        )
+        return response
 
 
 # ---------------------------------------------------------------------------

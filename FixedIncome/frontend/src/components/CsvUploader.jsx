@@ -11,6 +11,7 @@ import {
   DialogActions,
   Typography,
   Alert,
+  Stack,
 } from '@mui/material'
 
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -23,6 +24,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 const CsvUploader = ({ onSuccess }) => {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
+  const [importStats, setImportStats] = useState(null);
 
   // Preview states
   const [selectedFile, setSelectedFile] = useState(null);
@@ -34,6 +36,7 @@ const CsvUploader = ({ onSuccess }) => {
 
     setUploading(true);
     setResult(null);
+    setImportStats(null);
     setSelectedFile(file)
 
     const formData = new FormData();
@@ -64,9 +67,10 @@ const CsvUploader = ({ onSuccess }) => {
     formData.append('file', selectedFile);
 
     try {
-      await AxiosInstance.post('bonds/import_csv/', formData, {
+      const response = await AxiosInstance.post('bonds/import_csv/', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
+      setImportStats(response.data);
       setResult({ type: 'success', msg: `Successfully processed ${selectedFile.name}.` });
       setSelectedFile(null);
       if (onSuccess) setTimeout(onSuccess, 2000); // Refresh table
@@ -74,6 +78,27 @@ const CsvUploader = ({ onSuccess }) => {
       setResult({ type: 'error', msg: getApiErrorMessage(error, 'Upload failed.') });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDownloadSkippedCsv = async () => {
+    if (!importStats?.skipped_csv_url) return;
+
+    try {
+      const response = await AxiosInstance.get(importStats.skipped_csv_url, {
+        responseType: 'blob',
+      });
+      const downloadUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
+      const link = document.createElement('a');
+      const filename = `skipped_bonds_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.href = downloadUrl;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      setResult({ type: 'error', msg: getApiErrorMessage(error, 'Failed to download skipped CSV.') });
     }
   };
 
@@ -114,6 +139,31 @@ const CsvUploader = ({ onSuccess }) => {
       </Box>
   
       {result && <Alert severity={result.type} sx={{ mt:2 }}>{result.msg}</Alert>}
+      {importStats && (
+        <Alert severity={importStats.skipped_count > 0 ? 'warning' : 'success'} sx={{ mt:2 }}>
+          <Stack spacing={0.5}>
+            <Typography variant='body2'>
+              Total rows: <b>{importStats.total_rows}</b>
+            </Typography>
+            <Typography variant='body2'>
+              Created: <b>{importStats.created_count}</b>
+            </Typography>
+            <Typography variant='body2'>
+              Updated: <b>{importStats.updated_count}</b>
+            </Typography>
+            <Typography variant='body2'>
+              Skipped: <b>{importStats.skipped_count}</b>
+            </Typography>
+            {importStats.skipped_count > 0 && importStats.skipped_csv_url && (
+              <Box sx={{ pt: 1 }}>
+                <Button onClick={handleDownloadSkippedCsv} size='small' variant='outlined'>
+                  Download skipped CSV
+                </Button>
+              </Box>
+            )}
+          </Stack>
+        </Alert>
+      )}
 
       <Dialog open={Boolean(previewStats)} onClose={handleCancel} maxWidth='sm' fullWidth>
         <DialogTitle sx={{ fontWeight: 'bold' }}>Confirm Data Import</DialogTitle>

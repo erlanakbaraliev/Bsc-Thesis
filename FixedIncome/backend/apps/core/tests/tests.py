@@ -913,6 +913,45 @@ class BondImportCsvTest(APITestCase):
         self.assertFalse(Bond.objects.filter(isin="XS9999999999").exists())
         self.assertTrue(Bond.objects.filter(isin="XS0000077777").exists())
 
+    def test_import_returns_skipped_csv_url_when_rows_are_skipped(self):
+        rows = [
+            {**_VALID_ROWS[0], "ISIN": "XS3333333333", "Issue Date": "NOT-A-DATE"},
+        ]
+        response = self._upload_csv(rows)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["total_rows"], 1)
+        self.assertEqual(response.data["created_count"], 0)
+        self.assertEqual(response.data["updated_count"], 0)
+        self.assertEqual(response.data["skipped_count"], 1)
+        self.assertTrue(response.data["skipped_csv_url"])
+
+    def test_import_skipped_csv_download_endpoint_returns_csv_content(self):
+        rows = [
+            {**_VALID_ROWS[0], "ISIN": "XS4444444444", "Issue Date": "NOT-A-DATE"},
+        ]
+        upload_response = self._upload_csv(rows)
+        self.assertEqual(upload_response.status_code, status.HTTP_201_CREATED)
+        skipped_csv_url = upload_response.data["skipped_csv_url"]
+        self.assertTrue(skipped_csv_url)
+
+        # Convert absolute URL to API path for test client.
+        api_path = "/" + skipped_csv_url.split("//", 1)[-1].split("/", 1)[-1]
+        download_response = self.client.get(api_path)
+
+        self.assertEqual(download_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(download_response["Content-Type"], "text/csv")
+        self.assertIn("attachment; filename=", download_response["Content-Disposition"])
+        content = download_response.content.decode("utf-8")
+        self.assertIn("ISIN,Error", content)
+        self.assertIn("XS4444444444", content)
+
+    def test_import_returns_no_skipped_csv_url_when_no_skips(self):
+        response = self._upload_csv(_VALID_ROWS)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["skipped_count"], 0)
+        self.assertIsNone(response.data["skipped_csv_url"])
+
     def test_import_accepts_multiple_date_formats(self):
         formats = [
             ("01/01/2022", "XS0000000010"),  # MM/DD/YYYY
