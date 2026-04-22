@@ -1,4 +1,13 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.core.validators import (
+    MaxValueValidator,
+    MinLengthValidator,
+    MinValueValidator,
+    RegexValidator,
+)
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -39,7 +48,9 @@ class Issuer(TimeStampedModel):
         ("Other", "Other"),
     ]
 
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(
+        max_length=255, unique=True, validators=[MinLengthValidator(2)]
+    )
     country = models.CharField(max_length=100)
     industry = models.CharField(max_length=100, choices=INDUSTRY_CHOICES)
     credit_rating = models.CharField(
@@ -58,21 +69,49 @@ class Bond(TimeStampedModel):
     ]
 
     # ISIN is international ID for bonds (always 12 chars)
-    isin = models.CharField(max_length=12, unique=True, verbose_name="ISIN")
+    isin = models.CharField(
+        max_length=12,
+        unique=True,
+        verbose_name="ISIN",
+        validators=[
+            RegexValidator(
+                regex=r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$",
+                message="Invalid ISIN format (e.g. US0378331005)",
+            )
+        ],
+    )
     issuer = models.ForeignKey(Issuer, on_delete=models.CASCADE, related_name="bonds")
     bond_type = models.CharField(max_length=4, choices=TYPE_CHOICES)
 
     # Financial Data
     face_value = models.DecimalField(
-        max_digits=15, decimal_places=2, help_text="Principal amount"
+        max_digits=15,
+        decimal_places=2,
+        help_text="Principal amount",
+        validators=[MinValueValidator(Decimal("0.01"))],
     )  # 1k usd you pay - 1k they pay back on maturity date
     coupon_rate = models.DecimalField(
-        max_digits=5, decimal_places=2, help_text="Percentage yield (e.g., 5.25)"
+        max_digits=5,
+        decimal_places=2,
+        help_text="Percentage yield (e.g., 5.25)",
+        validators=[
+            MinValueValidator(Decimal("0.00")),  # Matches Yup min(0)
+            MaxValueValidator(Decimal("100.00")),  # Matches Yup max(100)
+        ],
     )  # interest they'll pay you on a montly or yearly basis
 
     # Dates
     issue_date = models.DateField()
     maturity_date = models.DateField()
+
+    def clean(self):
+        # Cross-field validation for dates
+        super().clean()
+        if self.issue_date and self.maturity_date:
+            if self.maturity_date <= self.issue_date:
+                raise ValidationError(
+                    {"maturity_date": "Maturity date must be after issue date."}
+                )
 
     def __str__(self):
         return f"{self.isin} - {self.issuer.name} ({self.coupon_rate})"
@@ -88,9 +127,12 @@ class Transaction(models.Model):
     bond = models.ForeignKey(Bond, on_delete=models.CASCADE)
     action = models.CharField(max_length=4, choices=ACTION_CHOICES)
 
-    quantity = models.PositiveIntegerField()
+    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     price = models.DecimalField(
-        max_digits=15, decimal_places=2, help_text="Price per bond at transaction"
+        max_digits=15,
+        decimal_places=2,
+        help_text="Price per bond at transaction",
+        validators=[MinValueValidator(Decimal("0.01"))],
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
