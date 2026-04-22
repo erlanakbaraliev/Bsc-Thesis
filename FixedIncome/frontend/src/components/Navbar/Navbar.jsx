@@ -23,6 +23,8 @@ const shortDrawerWidth = 80
 
 export default function Navbar({ content, themeMode, onToggleTheme }) {
   const [isBigMenu, setIsBigMenu] = useState(false)
+  const transitionDuration = 240;
+  const transitionEasing = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
   const { user, role, logout } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -57,10 +59,26 @@ export default function Navbar({ content, themeMode, onToggleTheme }) {
           zIndex: (theme) => theme.zIndex.drawer + 1,
           bgcolor: 'background.paper',
           color: 'text.primary',
+          transition: (theme) =>
+            theme.transitions.create(['width', 'margin'], {
+              easing: transitionEasing,
+              duration: transitionDuration,
+            }),
         }}
       >
         <Toolbar>
-          <IconButton sx={{marginRight:'40px'}} onClick={changeMenu}>
+          <IconButton
+            sx={{
+              marginRight: '40px',
+              transition: (theme) =>
+                theme.transitions.create(['transform'], {
+                  easing: transitionEasing,
+                  duration: transitionDuration,
+                }),
+              transform: isBigMenu ? 'rotate(0deg)' : 'rotate(-180deg)',
+            }}
+            onClick={changeMenu}
+          >
             {isBigMenu? <MenuOpenIcon/>: <MenuIcon/>}
           </IconButton>
           <img src={logo} width="3%"/>
@@ -109,11 +127,58 @@ export default function Navbar({ content, themeMode, onToggleTheme }) {
         sx={{
           width: isBigMenu? drawerWidth: shortDrawerWidth,
           flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: isBigMenu? drawerWidth: shortDrawerWidth, boxSizing: 'border-box' },
+          transition: (theme) =>
+            theme.transitions.create('width', {
+              easing: transitionEasing,
+              duration: transitionDuration,
+            }),
+          [`& .MuiDrawer-paper`]: {
+            width: isBigMenu? drawerWidth: shortDrawerWidth,
+            boxSizing: 'border-box',
+            overflowX: 'hidden',
+            transition: (theme) =>
+              theme.transitions.create('width', {
+                easing: transitionEasing,
+                duration: transitionDuration,
+              }),
+          },
         }}
       >
         <Toolbar />
-        {isBigMenu? <Menu/>: <ShortMenu/>}
+        <Box sx={{ position: 'relative', flex: 1 }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              opacity: isBigMenu ? 1 : 0,
+              transform: isBigMenu ? 'translateX(0)' : 'translateX(-8px)',
+              pointerEvents: isBigMenu ? 'auto' : 'none',
+              transition: (theme) =>
+                theme.transitions.create(['opacity', 'transform'], {
+                  easing: transitionEasing,
+                  duration: transitionDuration,
+                }),
+            }}
+          >
+            <Menu />
+          </Box>
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              opacity: isBigMenu ? 0 : 1,
+              transform: isBigMenu ? 'translateX(8px)' : 'translateX(0)',
+              pointerEvents: isBigMenu ? 'none' : 'auto',
+              transition: (theme) =>
+                theme.transitions.create(['opacity', 'transform'], {
+                  easing: transitionEasing,
+                  duration: transitionDuration,
+                }),
+            }}
+          >
+            <ShortMenu />
+          </Box>
+        </Box>
       </Drawer>
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />
