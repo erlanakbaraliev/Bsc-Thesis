@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import logging
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -236,3 +237,8 @@ LOGGING = {
         },
     },
 }
+
+if "test" in sys.argv:
+    LOGGING["root"]["level"] = "CRITICAL"
+    for logger in LOGGING.get("loggers", {}).values():
+        logger["level"] = "CRITICAL"
