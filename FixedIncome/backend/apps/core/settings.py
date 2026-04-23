@@ -10,11 +10,38 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import logging
 from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+class DefaultUserIdFilter(logging.Filter):
+    def filter(self, record):
+        if not hasattr(record, "user_id"):
+            record.user_id = "-"
+        if not hasattr(record, "user_name"):
+            record.user_name = "-"
+
+        # When app logs provide user_id in `extra`, enrich logs with username too.
+        user_id = getattr(record, "user_id", "-")
+        if record.user_name == "-" and user_id not in ("-", None):
+            try:
+                from django.contrib.auth import get_user_model
+
+                user = (
+                    get_user_model().objects.filter(pk=user_id).only("username").first()
+                )
+                if user and user.username:
+                    record.user_name = user.username
+            except Exception:
+                # Keep logging resilient even if DB/auth is unavailable.
+                pass
+        return True
 
 
 # Quick-start development settings - unsuitable for production
@@ -157,4 +184,55 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "%(asctime)s | %(levelname)s | %(name)s | %(module)s:%(lineno)d | user_id=%(user_id)s user_name=%(user_name)s | %(message)s",
+        },
+    },
+    "filters": {
+        "default_user_id": {
+            "()": "apps.core.settings.DefaultUserIdFilter",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+            "filters": ["default_user_id"],
+        },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "formatter": "verbose",
+            "filename": str(LOG_DIR / "app.log"),
+            "filters": ["default_user_id"],
+            "maxBytes": 10 * 1024 * 1024,  # 10 MB per file
+            "backupCount": 5,  # keep app.log through app.log.5
+        },
+    },
+    "root": {
+        "handlers": ["console", "file"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console", "file"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.db.backends": {
+            "handlers": ["console", "file"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
 }
