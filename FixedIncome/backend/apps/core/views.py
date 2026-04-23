@@ -1,5 +1,6 @@
 import csv
 import io
+import logging
 import uuid
 
 import rest_framework
@@ -39,6 +40,8 @@ from .serializers import (
     UserSerializer,
 )
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # User
 # ---------------------------------------------------------------------------
@@ -49,18 +52,32 @@ class UserListCreateAPIView(APIView):
 
     def get(self, request):
         if not IsAdminRole().has_permission(request, self):
+            logger.warning("User list forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         users = User.objects.all().order_by("id")
         serializer = UserSerializer(users, many=True)
+        logger.info(
+            "User list retrieved",
+            extra={"user_id": request.user.id, "count": len(serializer.data)},
+        )
         return Response(serializer.data)
 
     def post(self, request):
         if not IsAdminRole().has_permission(request, self):
+            logger.warning("User create forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
+            logger.info(
+                "User created",
+                extra={"user_id": request.user.id, "created_user_id": serializer.data.get("id")},
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        logger.warning(
+            "User create validation failed",
+            extra={"user_id": request.user.id},
+        )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -69,27 +86,46 @@ class UserDetailAPIView(APIView):
 
     def get(self, request, pk):
         if not IsAdminRole().has_permission(request, self):
+            logger.warning("User detail forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         user = get_object_or_404(User, pk=pk)
         serializer = UserSerializer(user)
+        logger.info(
+            "User detail retrieved",
+            extra={"user_id": request.user.id, "target_user_id": pk},
+        )
         return Response(serializer.data)
 
     def patch(self, request, pk):
         if not IsAdminRole().has_permission(request, self):
+            logger.warning("User update forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         user = get_object_or_404(User, pk=pk)
         serializer = UserSerializer(user, data=request.data, partial=True)
 
         if serializer.is_valid():
             serializer.save()
+            logger.info(
+                "User updated",
+                extra={"user_id": request.user.id, "target_user_id": pk},
+            )
             return Response(serializer.data)
+        logger.warning(
+            "User update validation failed",
+            extra={"user_id": request.user.id, "target_user_id": pk},
+        )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
         if not IsAdminRole().has_permission(request, self):
+            logger.warning("User delete forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         user = get_object_or_404(User, pk=pk)
         user.delete()
+        logger.info(
+            "User deleted",
+            extra={"user_id": request.user.id, "target_user_id": pk},
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -98,6 +134,7 @@ class MeAPIView(APIView):
 
     def get(self, request):
         serializer = MeSerializer(request.user)
+        logger.info("Me endpoint retrieved", extra={"user_id": request.user.id})
         return Response(serializer.data)
 
 
@@ -112,15 +149,25 @@ class IssuerListCreateAPIView(APIView):
     def get(self, request):
         issuers = Issuer.objects.all().order_by("id")
         serializer = IssuerSerializer(issuers, many=True)
+        logger.info(
+            "Issuer list retrieved",
+            extra={"user_id": request.user.id, "count": len(serializer.data)},
+        )
         return Response(serializer.data)
 
     def post(self, request):
         if not CanWriteReferenceData().has_permission(request, self):
+            logger.warning("Issuer create forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = IssuerSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
+            logger.info(
+                "Issuer created",
+                extra={"user_id": request.user.id, "issuer_id": serializer.data.get("id")},
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        logger.warning("Issuer create validation failed", extra={"user_id": request.user.id})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -130,24 +177,42 @@ class IssuerDetailAPIView(APIView):
     def get(self, request, pk):
         issuer = get_object_or_404(Issuer, pk=pk)
         serializer = IssuerSerializer(issuer)
+        logger.info(
+            "Issuer detail retrieved",
+            extra={"user_id": request.user.id, "issuer_id": pk},
+        )
         return Response(serializer.data)
 
     def patch(self, request, pk):
         if not CanWriteReferenceData().has_permission(request, self):
+            logger.warning("Issuer update forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         issuer = get_object_or_404(Issuer, pk=pk)
         serializer = IssuerSerializer(issuer, data=request.data, partial=True)
 
         if serializer.is_valid():
             serializer.save()
+            logger.info(
+                "Issuer updated",
+                extra={"user_id": request.user.id, "issuer_id": pk},
+            )
             return Response(serializer.data)
+        logger.warning(
+            "Issuer update validation failed",
+            extra={"user_id": request.user.id, "issuer_id": pk},
+        )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
         if not IsAdminRole().has_permission(request, self):
+            logger.warning("Issuer delete forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         issuer = get_object_or_404(Issuer, pk=pk)
         issuer.delete()
+        logger.info(
+            "Issuer deleted",
+            extra={"user_id": request.user.id, "issuer_id": pk},
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -238,15 +303,25 @@ class BondListCreateAPIView(APIView):
         paginator = self.pagination_class()
         paginated_queryset = paginator.paginate_queryset(queryset, request, view=self)
         serializer = BondSerializer(paginated_queryset, many=True)
+        logger.info(
+            "Bond list retrieved",
+            extra={"user_id": request.user.id, "count": len(serializer.data)},
+        )
         return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         if not CanWriteReferenceData().has_permission(request, self):
+            logger.warning("Bond create forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = BondSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
+            logger.info(
+                "Bond created",
+                extra={"user_id": request.user.id, "bond_id": serializer.data.get("id")},
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        logger.warning("Bond create validation failed", extra={"user_id": request.user.id})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -256,23 +331,32 @@ class BondDetailView(APIView):
     def get(self, request, pk):
         bond = get_object_or_404(Bond, pk=pk)
         serializer = BondSerializer(bond)
+        logger.info("Bond detail retrieved", extra={"user_id": request.user.id, "bond_id": pk})
         return Response(serializer.data)
 
     def patch(self, request, pk):
         if not CanWriteReferenceData().has_permission(request, self):
+            logger.warning("Bond update forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         bond = get_object_or_404(Bond, pk=pk)
         serializer = BondSerializer(bond, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
+            logger.info("Bond updated", extra={"user_id": request.user.id, "bond_id": pk})
             return Response(serializer.data, status=status.HTTP_200_OK)
+        logger.warning(
+            "Bond update validation failed",
+            extra={"user_id": request.user.id, "bond_id": pk},
+        )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
         if not IsAdminRole().has_permission(request, self):
+            logger.warning("Bond delete forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         bond = get_object_or_404(Bond, pk=pk)
         bond.delete()
+        logger.info("Bond deleted", extra={"user_id": request.user.id, "bond_id": pk})
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -286,9 +370,14 @@ class BondBulkDeleteAPIView(APIView):
 
     def delete(self, request):
         if not IsAdminRole().has_permission(request, self):
+            logger.warning("Bond bulk delete forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         ids = request.data.get("ids", [])
         Bond.objects.filter(id__in=ids).delete()
+        logger.info(
+            "Bond bulk delete completed",
+            extra={"user_id": request.user.id, "requested_count": len(ids)},
+        )
         return Response(status=204)
 
 
@@ -340,11 +429,21 @@ class BondExportCsvAPIView(APIView):
 
     def get(self, request):
         if not CanImportExportBonds().has_permission(request, self):
+            logger.warning(
+                "Bond CSV export forbidden",
+                extra={"user_id": request.user.id},
+            )
             return Response(status=status.HTTP_403_FORBIDDEN)
         queryset = Bond.objects.all().select_related("issuer")
 
         for backend in list(self.filter_backends):
             queryset = backend().filter_queryset(request, queryset, self)
+
+        export_count = queryset.count()
+        logger.info(
+            "Bond CSV export started",
+            extra={"user_id": request.user.id, "row_count": export_count},
+        )
 
         def row_generator():
             echo = Echo()
@@ -382,6 +481,10 @@ class BondExportCsvAPIView(APIView):
 
         response = StreamingHttpResponse(row_generator(), content_type="text/csv")
         response["Content-Disposition"] = 'attachment; filename="bonds_export.csv"'
+        logger.info(
+            "Bond CSV export response created",
+            extra={"user_id": request.user.id, "row_count": export_count},
+        )
         return response
 
 
@@ -398,22 +501,47 @@ class BondImportPreviewAPIView(APIView):
 
     def post(self, request):
         if not CanImportExportBonds().has_permission(request, self):
+            logger.warning(
+                "Bond CSV preview forbidden",
+                extra={"user_id": request.user.id},
+            )
             return Response(status=status.HTTP_403_FORBIDDEN)
         file_obj = request.FILES.get("file")
         if not file_obj:
+            logger.warning(
+                "Bond CSV preview missing file",
+                extra={"user_id": request.user.id},
+            )
             return Response({"error": "No file uploaded"})
         elif not file_obj.name.endswith(".csv"):
+            logger.warning(
+                "Bond CSV preview invalid file extension",
+                extra={"user_id": request.user.id, "filename": file_obj.name},
+            )
             return Response({"error": "File must be .csv"}, status=400)
 
         try:
             reader = decode_csv_file(file_obj)
             csv_isins = [r.get("ISIN") for r in reader if r.get("ISIN")]
         except Exception as e:
+            logger.exception(
+                "Bond CSV preview parse failed",
+                extra={"user_id": request.user.id},
+            )
             return Response({"error": {str(e)}}, status=400)
 
         total_rows = len(csv_isins)
         existing_count = Bond.objects.filter(isin__in=csv_isins).count()
         new_rows = total_rows - existing_count
+        logger.info(
+            "Bond CSV preview completed",
+            extra={
+                "user_id": request.user.id,
+                "total_rows": total_rows,
+                "new_rows": new_rows,
+                "existing_rows": existing_count,
+            },
+        )
 
         return Response(
             {"total": total_rows, "new": new_rows, "existing": existing_count}
@@ -431,21 +559,41 @@ class BondImportCsvAPIView(APIView):
 
     def post(self, request):
         if not CanImportExportBonds().has_permission(request, self):
+            logger.warning(
+                "Bond CSV import forbidden",
+                extra={"user_id": request.user.id},
+            )
             return Response(status=status.HTTP_403_FORBIDDEN)
         file_obj = request.FILES.get("file")
         if not file_obj:
+            logger.warning(
+                "Bond CSV import missing file",
+                extra={"user_id": request.user.id},
+            )
             return Response({"error": "No file uploaded"})
         elif not file_obj.name.endswith(".csv"):
+            logger.warning(
+                "Bond CSV import invalid file extension",
+                extra={"user_id": request.user.id, "filename": file_obj.name},
+            )
             return Response({"error": "File must be .csv"}, status=400)
 
         try:
             reader = list(decode_csv_file(file_obj))
         except Exception as e:
+            logger.exception(
+                "Bond CSV import parse failed",
+                extra={"user_id": request.user.id},
+            )
             return Response({"error": str(e)}, status=400)
 
         to_create = []
         to_update = []  # list of (bond_instance, fields_to_update)
         skipped_rows = []
+        logger.info(
+            "Bond CSV import started",
+            extra={"user_id": request.user.id, "csv_rows": len(reader)},
+        )
 
         existing_issuers = {i.name: i for i in Issuer.objects.all()}
 
@@ -495,6 +643,10 @@ class BondImportCsvAPIView(APIView):
                         else None
                     )
                 except ValueError as e:
+                    logger.warning(
+                        "Bond CSV import row skipped due to invalid date",
+                        extra={"user_id": request.user.id, "isin": isin},
+                    )
                     skipped_rows.append({"isin": isin, "errors": str(e)})
                     continue
 
@@ -526,6 +678,10 @@ class BondImportCsvAPIView(APIView):
                     try:
                         bond.full_clean(validate_unique=False)
                     except ValidationError as e:
+                        logger.warning(
+                            "Bond CSV import row skipped due to update validation error",
+                            extra={"user_id": request.user.id, "isin": isin},
+                        )
                         skipped_rows.append({"isin": isin, "errors": e.message_dict})
                         continue
 
@@ -566,6 +722,10 @@ class BondImportCsvAPIView(APIView):
                     try:
                         bond.full_clean(validate_unique=False)
                     except ValidationError as e:
+                        logger.warning(
+                            "Bond CSV import row skipped due to create validation error",
+                            extra={"user_id": request.user.id, "isin": isin},
+                        )
                         skipped_rows.append({"isin": isin, "errors": e.message_dict})
                         continue
 
@@ -609,6 +769,16 @@ class BondImportCsvAPIView(APIView):
                 f"/bonds/import_csv/skipped/{token}/"
             )
 
+        logger.info(
+            "Bond CSV import completed",
+            extra={
+                "user_id": request.user.id,
+                "created_count": len(to_create),
+                "updated_count": len(to_update),
+                "skipped_count": len(skipped_rows),
+            },
+        )
+
         return Response(
             {
                 "message": "Upload complete!",
@@ -628,17 +798,26 @@ class BondImportSkippedCsvDownloadAPIView(APIView):
 
     def get(self, request, token):
         if not CanImportExportBonds().has_permission(request, self):
+            logger.warning(
+                "Skipped CSV download forbidden",
+                extra={"user_id": request.user.id},
+            )
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         cache_key = f"bond_import_skipped_{token}"
         csv_content = cache.get(cache_key)
         if not csv_content:
+            logger.warning(
+                "Skipped CSV download token missing or expired",
+                extra={"user_id": request.user.id},
+            )
             return Response({"error": "Skipped CSV file not found or expired."}, status=404)
 
         response = HttpResponse(csv_content, content_type="text/csv")
         response["Content-Disposition"] = (
             f'attachment; filename="skipped_bonds_{token[:8]}.csv"'
         )
+        logger.info("Skipped CSV downloaded", extra={"user_id": request.user.id})
         return response
 
 
@@ -656,15 +835,31 @@ class TransactionListCreateAPIView(APIView):
         if role != UserProfile.ROLE_ADMIN:
             transactions = transactions.filter(user=request.user)
         serializer = TransactionSerializer(transactions, many=True)
+        logger.info(
+            "Transaction list retrieved",
+            extra={"user_id": request.user.id, "count": len(serializer.data)},
+        )
         return Response(serializer.data)
 
     def post(self, request):
         if not CanCreateTransaction().has_permission(request, self):
+            logger.warning("Transaction create forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = TransactionSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user=request.user)
+            logger.info(
+                "Transaction created",
+                extra={
+                    "user_id": request.user.id,
+                    "transaction_id": serializer.data.get("id"),
+                },
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        logger.warning(
+            "Transaction create validation failed",
+            extra={"user_id": request.user.id},
+        )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -674,26 +869,45 @@ class TransactionDetailAPIView(APIView):
     def get(self, request, pk):
         transaction = get_object_or_404(Transaction, pk=pk)
         if not IsOwnerOrAdmin().has_object_permission(request, self, transaction):
+            logger.warning("Transaction detail forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = TransactionSerializer(transaction)
+        logger.info(
+            "Transaction detail retrieved",
+            extra={"user_id": request.user.id, "transaction_id": pk},
+        )
         return Response(serializer.data)
 
     def patch(self, request, pk):
         transaction = get_object_or_404(Transaction, pk=pk)
         if not IsOwnerOrAdmin().has_object_permission(request, self, transaction):
+            logger.warning("Transaction update forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         serializer = TransactionSerializer(transaction, data=request.data, partial=True)
 
         if serializer.is_valid():
             serializer.save()
+            logger.info(
+                "Transaction updated",
+                extra={"user_id": request.user.id, "transaction_id": pk},
+            )
             return Response(serializer.data)
+        logger.warning(
+            "Transaction update validation failed",
+            extra={"user_id": request.user.id, "transaction_id": pk},
+        )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
         transaction = get_object_or_404(Transaction, pk=pk)
         if not IsOwnerOrAdmin().has_object_permission(request, self, transaction):
+            logger.warning("Transaction delete forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
         transaction.delete()
+        logger.info(
+            "Transaction deleted",
+            extra={"user_id": request.user.id, "transaction_id": pk},
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -705,6 +919,7 @@ class TransactionDetailAPIView(APIView):
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def meta(request):
+    logger.info("Meta endpoint retrieved", extra={"user_id": request.user.id})
     return Response(
         {
             "credit_ratings": [{"id": k, "name": v} for k, v in Issuer.RATING_CHOICES],
