@@ -1,0 +1,152 @@
+parameters:
+  # Release the build artifact into which feed?
+  # - name: artifactFeed
+  #   type: string
+
+  # Artifact of which repo to publish?
+  # - name: repositoryUrl
+  #   type: string
+
+  - name: skipQA
+    type: boolean
+
+  - name: releaseVersion
+    type: string
+
+  - name: adoAgentPool
+    type: string
+    default: "Azure Pipelines"
+
+# ====================================
+#||         Code Quality             ||
+# ====================================
+stages:
+  - stage: CodeQuality
+    displayName: "Code Quality"
+    variables:
+      BACKEND_DIR: FixedIncome/backend
+    condition: |
+      eq('${{ parameters.skipQA }}', false)
+    jobs:
+      # ------------------------------------
+      #|        Tests                      |
+      # ------------------------------------
+      - job: Tests
+        displayName: "Tests"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.13"
+              architecture: "x64"
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r FixedIncome/backend/requirements.txt
+            displayName: "Installing pre-requisites"
+
+          # Search through the current directory, find **manage.py, and set projectRoot variable to the path.
+          - task: PythonScript@0
+            displayName: "Export project path"
+            inputs:
+              scriptSource: "inline"
+              script: |
+                from glob import iglob
+                from os import path
+
+                manage_py = next(iglob(path.join('**', 'manage.py'), recursive=True), None)
+                if not manage_py:
+                    raise SystemExit('Could not find a django project')
+                project_location = path.dirname(path.abspath(manage_py))
+                print('Found django project in ', project_location)
+                print(f'##vso[task.setvariable variable=projectRoot]{project_location}')
+
+          - script: |
+              pushd $(projectRoot)
+              echo $(projectRoot)
+              export DB_ENV=sqlite
+              coverage run manage.py test -b
+            workingDirectory: $(BACKEND_DIR)
+            displayName: "Running Tests"
+
+          - script: |
+              coverage xml
+            workingDirectory: $(BACKEND_DIR)
+            displayName: "Generating coverage artifact"
+
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              codeCoverageTool: "Cobertura"
+              summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
+            displayName: Publishing coverage results
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathToPublish: "$(Build.ArtifactStagingDirectory)"
+              ArtifactName: "CodeCoverageFile"
+              publishLocation: "Container"
+      # ------------------------------------
+      #|            Ruff Linter            |
+      # ------------------------------------
+      - job: Linter
+        displayName: "Linter"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.13"
+            displayName: "Using python3.13"
+
+          - script: |
+              python3 -m pip install --upgrade pip
+              pip install -r requirements.txt
+            workingDirectory: $(BACKEND_DIR)
+            displayName: "Installing pre-requisites"
+
+          - script: |
+              ruff check
+            workingDirectory: $(BACKEND_DIR)
+            displayName: "Ruff check"
+
+  # ====================================
+  #||       Build and Release          ||
+  # ====================================
+  - stage: BuildRelease
+    displayName: "Build and Release"
+    condition: always()
+    jobs:
+      # --------------------------------
+      #|            Build               |
+      # --------------------------------
+      - job: Build
+        displayName: "Build"
+        steps:
+          - script: |
+              echo 'Building a Python package'
+            displayName: "Build a Python package"
+        # --------------------------------
+        #|            Release             |
+        # --------------------------------
+      - job: Release
+        displayName: "Release using a self-hosted pool"
+        pool: ${{ parameters.adoAgentPool }}
+        steps:
+          - script: |
+              echo 'Release Python package to Azure Artifacts'
+            displayName: "Release to Azure Artifacts"
+
+  # ====================================
+  #||           Git tag                ||
+  # ====================================
+  - stage: TagRelease
+    displayName: "Tagging the Release"
+    dependsOn: BuildRelease
+    condition: |
+      eq(dependencies.BuildRelease.result, 'Succeeded')
+    jobs:
+      - job: GitTag
+        displayName: "Git Tag"
+        pool: ${{ parameters.adoAgentPool }}
+        steps:
+          - script: |
+              git config --global user.email "erlan.akbaralievich@gmail.com"
+              git config --global user.name "Akbaraliev Erlan"
+            displayName: "Setting Git configuration"
