@@ -1,0 +1,80 @@
+trigger:
+  - none
+
+pr:
+  - main
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  BACKEND_DIR: FixedIncome/backend
+
+stages:
+  # ------------------------------------
+  # |         Code Quality             |
+  # ------------------------------------
+  - stage: CodeQuality
+    displayName: "Code Quality"
+    jobs:
+      # -----------------------------------
+      #|       Tests and Coverage          |
+      # -----------------------------------
+      - job: UnitTests
+        displayName: "Unit Tests"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.13"
+            displayName: "Using python3.13"
+
+          - script: |
+              python3 -m pip install --upgrade pip
+              pip install -r requirements.txt
+            workingDirectory: $(BACKEND_DIR)
+            displayName: "Installing pre-requisites"
+
+          - script: |
+              export DB_ENV='sqlite'
+              coverage run manage.py test -b
+            workingDirectory: $(BACKEND_DIR)
+            displayName: "Running Tests"
+
+          # Generating .xml file for PublishCodeCoverageResults task
+          - script: |
+              coverage xml
+            workingDirectory: $(BACKEND_DIR)
+            displayName: "Generating a coverage artifact"
+
+          - task: UseDotNet@2
+            inputs:
+              workingDirectory: "$(System.DefaultWorkingDirectory)"
+
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/coverage.xml"
+
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFiles: "**/coverage*.xml"
+              testRunTitle: "Publish test results for Python $(python.version)"
+
+      - job: Linter
+        displayName: "Linter"
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.13"
+            displayName: "Using python3.13"
+
+          - script: |
+              python3 -m pip install --upgrade pip
+              pip install -r requirements.txt
+            workingDirectory: $(BACKEND_DIR)
+            displayName: "Installing pre-requisites"
+
+          - script: |
+              ruff check
+            workingDirectory: $(BACKEND_DIR)
+            displayName: "Ruff check"

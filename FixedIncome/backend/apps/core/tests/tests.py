@@ -68,7 +68,9 @@ def make_csv_bytes(rows: list[dict], fieldnames: list[str] | None = None) -> byt
 
 class ModelConstraintTest(APITestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="constraint-user", password="pass")
+        self.user = User.objects.create_user(
+            username="constraint-user", password="pass"
+        )
         self.issuer = make_issuer(name="Constraint Issuer")
         self.bond = make_bond(self.issuer, isin="US0000000001")
 
@@ -83,7 +85,9 @@ class ModelConstraintTest(APITestCase):
             duplicate.full_clean()
 
     def test_issuer_name_min_length_validator(self):
-        issuer = Issuer(name="A", country="US", industry="Technology", credit_rating="AA")
+        issuer = Issuer(
+            name="A", country="US", industry="Technology", credit_rating="AA"
+        )
         with self.assertRaises(ValidationError):
             issuer.full_clean()
 
@@ -165,6 +169,7 @@ class ModelConstraintTest(APITestCase):
     def test_user_profile_one_to_one_constraint(self):
         with self.assertRaises(IntegrityError):
             UserProfile.objects.create(user=self.user, role=UserProfile.ROLE_ADMIN)
+
 
 # ---------------------------------------------------------------------------
 # Authentication guard tests  (unauthenticated → 401)
@@ -643,7 +648,7 @@ class BondExportCsvTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         content = b"".join(response.streaming_content).decode("utf-8")
-        lines = [l for l in content.splitlines() if l.strip()]
+        lines = [l for l in content.splitlines() if l.strip()]  # noqa: E741
         self.assertEqual(len(lines), 1)
 
 
@@ -852,7 +857,7 @@ class BondImportCsvTest(APITestCase):
         self.assertFalse(Bond.objects.filter(isin="XS2222222222").exists())
 
     def test_import_reuses_existing_issuer(self):
-        existing_issuer = Issuer.objects.create(
+        Issuer.objects.create(
             name="Import Issuer", country="GB", industry="Energy", credit_rating="AAA"
         )
         self._upload_csv(_VALID_ROWS)
