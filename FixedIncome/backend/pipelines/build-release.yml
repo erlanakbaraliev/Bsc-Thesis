@@ -1,0 +1,26 @@
+trigger:
+  - none
+
+pr:
+  - none
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+  - name: skipQA
+    displayName: "Skip Code Quality Scan"
+    type: boolean
+    default: false
+
+  - name: releaseVersion
+    displayName: "Release Version"
+    type: string
+    default: "<Major.Minor.Patch>"
+
+stages:
+  - template: build-release-template.yml
+    parameters:
+      skipQA: ${{ parameters.skipQA }}
+      releaseVersion: ${{ parameters.releaseVersion }}
+      adoAgentPool: "Azure Pipelines"
