@@ -11,6 +11,7 @@ djangorestframework_simplejwt==5.5.1
 isort==8.0.1
 mccabe==0.7.0
 platformdirs==4.9.6
+psycopg2==2.9.12
 PyJWT==2.12.1
 ruff==0.15.11
 sqlparse==0.5.5
