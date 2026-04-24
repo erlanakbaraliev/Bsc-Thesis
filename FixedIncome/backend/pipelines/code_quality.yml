@@ -9,6 +9,7 @@ pool:
 
 variables:
   BACKEND_DIR: FixedIncome/backend
+  FRONTEND_DIR: FixedIncome/frontend
 
 stages:
   # ------------------------------------
@@ -20,7 +21,7 @@ stages:
       # -----------------------------------
       #|       Tests and Coverage          |
       # -----------------------------------
-      - job: UnitTests
+      - job: BackendTests
         displayName: "Unit Tests"
         steps:
           - task: UsePythonVersion@0
@@ -59,6 +60,34 @@ stages:
             inputs:
               testResultsFiles: "**/coverage*.xml"
               testRunTitle: "Publish test results for Python $(python.version)"
+
+      # -----------------------------------
+      #|       Frontend Tests             |
+      # -----------------------------------
+      - job: FrontendTests
+        displayName: "Frontend Tests"
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: "22.x"
+            displayName: "Using Node.js 22.x"
+
+          - script: npm ci
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: "Installing dependencies"
+
+          - script: |
+              npm run test -- --reporter=verbose --reporter=junit --outputFile=test-results.xml
+            workingDirectory: $(FRONTEND_DIR)
+            displayName: "Running tests"
+
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: "JUnit"
+              testResultsFiles: "**/test-results.xml"
+              testRunTitle: "Frontend Tests"
+              searchFolder: $(FRONTEND_DIR)
 
       - job: Linter
         displayName: "Linter"
