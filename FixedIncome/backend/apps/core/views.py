@@ -22,6 +22,7 @@ from rest_framework.views import APIView, Response
 
 from apps.core.utils.utils import decode_csv_file, parse_date
 
+from .analytics import build_bond_analytics
 from .models import Bond, Issuer, Transaction, UserProfile
 from .pagination import StandardResultsSetPagination
 from .permissions import (
@@ -342,6 +343,21 @@ class BondListCreateAPIView(APIView):
             "Bond create validation failed", extra={"user_id": request.user.id}
         )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BondAnalyticsAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        analytics = build_bond_analytics()
+        logger.info(
+            "Bond analytics retrieved",
+            extra={
+                "user_id": request.user.id,
+                "total_bonds": analytics["summary"]["totalBonds"],
+            },
+        )
+        return Response(analytics, status=status.HTTP_200_OK)
 
 
 class BondDetailView(APIView):
