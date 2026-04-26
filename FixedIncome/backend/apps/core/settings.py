@@ -24,6 +24,20 @@ LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def get_bool_env(name, default=False):
+    return os.getenv(name, str(default)).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def get_csv_env(name, default=""):
+    value = os.getenv(name, default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
 class DefaultUserIdFilter(logging.Filter):
     def filter(self, record):
         if not hasattr(record, "user_id"):
@@ -52,12 +66,15 @@ class DefaultUserIdFilter(logging.Filter):
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-^mt!tzk-xi&yvp&j-6z)wuo5o@1^f&8%2745yka0@&q%8yu9q("
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-^mt!tzk-xi&yvp&j-6z)wuo5o@1^f&8%2745yka0@&q%8yu9q(",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = get_bool_env("DJANGO_DEBUG", True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = get_csv_env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 
 # Application definition
@@ -89,7 +106,9 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
 ]
 
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
+CORS_ALLOWED_ORIGINS = get_csv_env(
+    "DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:5173"
+)
 
 ROOT_URLCONF = "apps.core.urls"
 
@@ -118,11 +137,11 @@ DB_ENV = get_db_env()
 DATABASE_POSTGRESQL = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "mydatabase",
-        "USER": "erlan",
-        "PASSWORD": "erlan",
+        "NAME": os.getenv("DB_NAME", "mydatabase"),
+        "USER": os.getenv("DB_USER", "erlan"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "erlan"),
         "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": "5432",
+        "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
 
