@@ -1,6 +1,7 @@
 import './App.css'
 import { Routes, Route, BrowserRouter } from 'react-router'
 import Home from './components/Home'
+import BondAnalyticsDashboard from './components/BondAnalyticsDashboard'
 import CreateIssuer from './components/CreateIssuer'
 import CreateBond from './components/CreateBond'
 import Navbar from './components/Navbar/Navbar'
@@ -22,6 +23,11 @@ function App({ themeMode, onToggleTheme }) {
               <Route path="" element={
                 <PrivateRouter>
                   <Home/>
+                </PrivateRouter>
+              }/>
+              <Route path="/dashboard/" element={
+                <PrivateRouter>
+                  <BondAnalyticsDashboard/>
                 </PrivateRouter>
               }/>
               <Route path="/create/issuer/" element={

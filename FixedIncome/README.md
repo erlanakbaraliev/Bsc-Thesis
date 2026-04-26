@@ -16,6 +16,12 @@ Run from the `FixedIncome` directory.
 
 ## Common commands
 
+Run frontend tests:
+
+```bash
+docker compose exec frontend npm run test
+```
+
 Apply migrations:
 
 ```bash
@@ -33,7 +39,7 @@ Create superuser:
 ```bash
 docker compose exec backend python manage.py createsuperuser
 ```
-
+  
 Run backend tests:
 
 ```bash
@@ -45,6 +51,12 @@ Install a new frontend package:
 ```bash
 docker compose exec frontend npm install <package-name>
 ```
+
+## Bond analytics dashboard
+
+- Route: `http://localhost:5173/dashboard/`
+- Backend endpoint: `GET /bonds/analytics/`
+- Charts: Recharts-based bond type, credit rating, industry, and maturity timeline views.
 
 ## Stop and cleanup
 

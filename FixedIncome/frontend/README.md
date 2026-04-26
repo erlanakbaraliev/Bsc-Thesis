@@ -22,3 +22,8 @@ This project uses Vitest + React Testing Library for frontend tests.
 - Run tests once: `npm run test`
 - Run tests in watch mode: `npm run test:watch`
 - Run tests with coverage: `npm run test:coverage`
+
+## Dashboard charts
+
+- The Bond Analytics dashboard uses `recharts`.
+- Main page component: `src/components/BondAnalyticsDashboard.jsx`.

@@ -567,6 +567,80 @@ class BondViewFilterTest(APITestCase):
 
 
 # ---------------------------------------------------------------------------
+# Bond Analytics
+# ---------------------------------------------------------------------------
+
+
+class BondAnalyticsAPIViewTest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="analytics-user", password="pass")
+        self.client = auth_client(self.user)
+
+        issuer_fin = make_issuer(
+            name="Finance Corp",
+            industry="Financials",
+            credit_rating="AAA",
+        )
+        issuer_energy = make_issuer(
+            name="Energy Corp",
+            industry="Energy",
+            credit_rating="BBB",
+        )
+
+        make_bond(
+            issuer_fin,
+            isin="US1010101010",
+            bond_type="CORP",
+            coupon_rate="4.50",
+            maturity_date="2032-01-01",
+        )
+        make_bond(
+            issuer_fin,
+            isin="US2020202020",
+            bond_type="GOV",
+            coupon_rate="3.50",
+            maturity_date="2028-01-01",
+        )
+        make_bond(
+            issuer_energy,
+            isin="US3030303030",
+            bond_type="CORP",
+            coupon_rate="6.00",
+            maturity_date="2026-09-01",
+        )
+
+    def test_bond_analytics_returns_expected_contract(self):
+        response = self.client.get("/bonds/analytics/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        self.assertIn("summary", response.data)
+        self.assertIn("byBondType", response.data)
+        self.assertIn("byCreditRating", response.data)
+        self.assertIn("byIndustry", response.data)
+        self.assertIn("maturityTimeline", response.data)
+
+        self.assertEqual(response.data["summary"]["totalBonds"], 3)
+        self.assertIn("averageCouponRate", response.data["summary"])
+        self.assertIn("averageFaceValue", response.data["summary"])
+
+        bond_type_counts = {item["label"]: item["value"] for item in response.data["byBondType"]}
+        self.assertEqual(bond_type_counts["CORP"], 2)
+        self.assertEqual(bond_type_counts["GOV"], 1)
+
+        rating_counts = {item["label"]: item["value"] for item in response.data["byCreditRating"]}
+        self.assertEqual(rating_counts["AAA"], 2)
+        self.assertEqual(rating_counts["BBB"], 1)
+
+        industry_counts = {item["label"]: item["value"] for item in response.data["byIndustry"]}
+        self.assertEqual(industry_counts["Financials"], 2)
+        self.assertEqual(industry_counts["Energy"], 1)
+
+        maturity_points = response.data["maturityTimeline"]
+        self.assertEqual(len(maturity_points), 6)
+        self.assertTrue(all("label" in item and "value" in item for item in maturity_points))
+
+
+# ---------------------------------------------------------------------------
 # BondViewSet — bulk_delete
 # ---------------------------------------------------------------------------
 

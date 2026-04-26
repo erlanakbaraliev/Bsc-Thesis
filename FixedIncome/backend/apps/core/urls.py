@@ -33,6 +33,7 @@ urlpatterns = [
         "issuers/<int:pk>/", views.IssuerDetailAPIView.as_view(), name="issuer-detail"
     ),
     path("bonds/", views.BondListCreateAPIView.as_view(), name="bond-list-create"),
+    path("bonds/analytics/", views.BondAnalyticsAPIView.as_view(), name="bond-analytics"),
     path("bonds/<int:pk>/", views.BondDetailView.as_view(), name="bond-detail"),
     path(
         "bonds/bulk_delete/",

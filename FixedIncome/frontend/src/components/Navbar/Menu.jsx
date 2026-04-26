@@ -9,6 +9,7 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import TableViewIcon from '@mui/icons-material/TableView';
 import AddBoxIcon from '@mui/icons-material/AddBox';
+import PieChartIcon from '@mui/icons-material/PieChart';
 import { Link, useLocation } from 'react-router'
 import { useAuth } from '../../hooks/useAuth';
 
@@ -44,6 +45,14 @@ export default function Menu() {
               <TableViewIcon />
             </ListItemIcon>
             <ListItemText primary="Table View" />
+          </ListItemButton>
+        </List>
+        <List component="div" disablePadding>
+          <ListItemButton sx={{ pl: 4 }} component={Link} to="/dashboard/" selected={path === "/dashboard/"}>
+            <ListItemIcon>
+              <PieChartIcon />
+            </ListItemIcon>
+            <ListItemText primary="Bond Dashboard" />
           </ListItemButton>
         </List>
         {canWriteReferenceData && (
