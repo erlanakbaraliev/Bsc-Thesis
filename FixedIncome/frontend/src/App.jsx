@@ -2,6 +2,7 @@ import './App.css'
 import { Routes, Route, BrowserRouter } from 'react-router'
 import Home from './components/Home'
 import BondAnalyticsDashboard from './components/BondAnalyticsDashboard'
+import UserManagement from './components/UserManagement'
 import CreateIssuer from './components/CreateIssuer'
 import CreateBond from './components/CreateBond'
 import Navbar from './components/Navbar/Navbar'
@@ -10,6 +11,7 @@ import { AuthProvider } from './context/AuthProvider.jsx'
 import PrivateRouter from './components/PrivateRoute.jsx'
 
 const WRITE_ROLES = ['ADMIN', 'EDITOR']
+const ADMIN_ONLY = ['ADMIN']
 
 function App({ themeMode, onToggleTheme }) {
   return (
@@ -28,6 +30,11 @@ function App({ themeMode, onToggleTheme }) {
               <Route path="/dashboard/" element={
                 <PrivateRouter>
                   <BondAnalyticsDashboard/>
+                </PrivateRouter>
+              }/>
+              <Route path="/users/" element={
+                <PrivateRouter allowedRoles={ADMIN_ONLY}>
+                  <UserManagement/>
                 </PrivateRouter>
               }/>
               <Route path="/create/issuer/" element={

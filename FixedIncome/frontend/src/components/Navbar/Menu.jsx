@@ -10,16 +10,24 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 import TableViewIcon from '@mui/icons-material/TableView';
 import AddBoxIcon from '@mui/icons-material/AddBox';
 import PieChartIcon from '@mui/icons-material/PieChart';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import { Link, useLocation } from 'react-router'
 import { useAuth } from '../../hooks/useAuth';
 
 export default function Menu() {
   const [open, setOpen] = React.useState(true);
+  const [adminOpen, setAdminOpen] = React.useState(true);
   const { role } = useAuth();
   const canWriteReferenceData = role === 'ADMIN' || role === 'EDITOR';
+  const isAdmin = role === 'ADMIN';
 
   const handleClick = () => {
     setOpen(!open);
+  };
+
+  const handleAdminClick = () => {
+    setAdminOpen(!adminOpen);
   };
 
   const location = useLocation()
@@ -77,6 +85,28 @@ export default function Menu() {
         )}
 
       </Collapse>
+
+      {isAdmin && (
+        <>
+          <ListItemButton onClick={handleAdminClick}>
+            <ListItemIcon>
+              <AdminPanelSettingsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Admin" />
+            {adminOpen ? <ExpandLess /> : <ExpandMore />}
+          </ListItemButton>
+          <Collapse in={adminOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              <ListItemButton sx={{ pl: 4 }} component={Link} to="/users/" selected={path === "/users/"}>
+                <ListItemIcon>
+                  <ManageAccountsIcon />
+                </ListItemIcon>
+                <ListItemText primary="User Management" />
+              </ListItemButton>
+            </List>
+          </Collapse>
+        </>
+      )}
     </List>
   );
 }

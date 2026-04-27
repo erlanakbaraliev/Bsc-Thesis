@@ -284,33 +284,124 @@ class UnauthenticatedAccessTest(APITestCase):
 
 
 class UserViewTest(APITestCase):
+    """Admin-only user CRUD; list is paginated like bonds."""
+
+    _valid_password = "VeryUniqueTestPass2024!Xy"
+
     def setUp(self):
-        self.user = User.objects.create(username="erlan", password="erlan")
-        self.client = auth_client(self.user)
+        self.user = User.objects.create_user(
+            username="erlan", password=self._valid_password
+        )
+        self.client = auth_client(self.user, UserProfile.ROLE_ADMIN)
 
     def test_list_users(self):
         response = self.client.get("/users/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("count", response.data)
+        self.assertIn("results", response.data)
+        self.assertIsInstance(response.data["results"], list)
+
+    def test_list_users_forbidden_for_non_admin(self):
+        viewer = User.objects.create_user(
+            username="viewer_only", password=self._valid_password
+        )
+        client = auth_client(viewer, UserProfile.ROLE_VIEWER)
+        response = client.get("/users/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_retrieve_user(self):
-        response = self.client.get("/users/1/")
+        response = self.client.get(f"/users/{self.user.pk}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["username"], "erlan")
 
     def test_create_user(self):
         response = self.client.post(
             "/users/",
-            {"username": "aida", "password": "aida123456", "email": "aida@gmail.com"},
+            {
+                "username": "aida",
+                "password": self._valid_password,
+                "email": "aida@gmail.com",
+                "role": "EDITOR",
+            },
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(username="aida").exists())
+        created = User.objects.get(username="aida")
+        self.assertEqual(created.profile.role, UserProfile.ROLE_EDITOR)
+
+    def test_create_user_requires_password(self):
+        response = self.client.post(
+            "/users/",
+            {"username": "nopwd", "email": "nopwd@test.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_user_hashes_password(self):
+        pwd = "AnotherUniquePass2024!Zz"
+        response = self.client.post(
+            "/users/",
+            {
+                "username": "newu",
+                "password": pwd,
+                "email": "newu@test.com",
+                "role": "VIEWER",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        u = User.objects.get(username="newu")
+        self.assertTrue(u.check_password(pwd))
+
+    def test_reset_password(self):
+        target = User.objects.create_user(
+            username="treset", password="OldUniquePass2024!Aa"
+        )
+        new_pwd = "NewUniquePass2024!Bb"
+        response = self.client.post(
+            f"/users/{target.pk}/reset_password/",
+            {"password": new_pwd},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        target.refresh_from_db()
+        self.assertTrue(target.check_password(new_pwd))
+
+    def test_reset_password_forbidden_for_non_admin(self):
+        target = User.objects.create_user(
+            username="treset2", password=self._valid_password
+        )
+        editor = User.objects.create_user(
+            username="editor_u", password=self._valid_password
+        )
+        client = auth_client(editor, UserProfile.ROLE_EDITOR)
+        response = client.post(
+            f"/users/{target.pk}/reset_password/",
+            {"password": "NewUniquePass2024!Cc"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_update_user(self):
         response = self.client.patch(
             f"/users/{self.user.pk}/", {"email": "erlan@gmail.com"}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_update_user_does_not_change_password(self):
+        old = "OriginalUniquePass2024!Dd"
+        self.user.set_password(old)
+        self.user.save()
+        response = self.client.patch(
+            f"/users/{self.user.pk}/",
+            {"password": "ShouldBeIgnored2024!Ee", "email": "patched@test.com"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(old))
+        self.assertEqual(self.user.email, "patched@test.com")
 
     def test_delete_user(self):
         response = self.client.delete(f"/users/{self.user.pk}/")
