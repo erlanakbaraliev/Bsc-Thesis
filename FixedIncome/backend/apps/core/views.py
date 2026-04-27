@@ -6,6 +6,7 @@ import uuid
 import rest_framework
 import rest_framework.parsers
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -50,24 +51,42 @@ logger = logging.getLogger(__name__)
 
 class UserListCreateAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    pagination_class = StandardResultsSetPagination
+
+    filterset_fields = {
+        "username": ["exact", "icontains"],
+        "email": ["exact", "icontains"],
+        "profile__role": ["exact"],
+    }
+    ordering = ["id"]
+    search_fields = ["username", "email"]
+    ordering_fields = ["id", "username", "email", "profile__role"]
 
     def get(self, request):
         if not IsAdminRole().has_permission(request, self):
             logger.warning("User list forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
-        users = User.objects.all().order_by("id")
-        serializer = UserSerializer(users, many=True)
+        queryset = User.objects.select_related("profile").all().order_by("id")
+        for backend in list(self.filter_backends):
+            queryset = backend().filter_queryset(request, queryset, self)
+
+        paginator = self.pagination_class()
+        paginated_queryset = paginator.paginate_queryset(queryset, request, view=self)
+        serializer = UserSerializer(paginated_queryset, many=True)
         logger.info(
             "User list retrieved",
             extra={"user_id": request.user.id, "count": len(serializer.data)},
         )
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         if not IsAdminRole().has_permission(request, self):
             logger.warning("User create forbidden", extra={"user_id": request.user.id})
             return Response(status=status.HTTP_403_FORBIDDEN)
-        serializer = UserSerializer(data=request.data)
+        serializer = UserSerializer(
+            data=request.data, context={"require_password": True}
+        )
         if serializer.is_valid():
             serializer.save()
             logger.info(
@@ -128,6 +147,38 @@ class UserDetailAPIView(APIView):
         user.delete()
         logger.info(
             "User deleted",
+            extra={"user_id": request.user.id, "target_user_id": pk},
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserPasswordResetAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        if not IsAdminRole().has_permission(request, self):
+            logger.warning(
+                "User password reset forbidden", extra={"user_id": request.user.id}
+            )
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        user = get_object_or_404(User, pk=pk)
+        password = request.data.get("password", "")
+        if not isinstance(password, str) or not password:
+            return Response(
+                {"password": ["This field is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            validate_password(password, user=user)
+        except ValidationError as exc:
+            return Response(
+                {"password": list(exc.messages)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.set_password(password)
+        user.save(update_fields=["password"])
+        logger.info(
+            "User password reset",
             extra={"user_id": request.user.id, "target_user_id": pk},
         )
         return Response(status=status.HTTP_204_NO_CONTENT)

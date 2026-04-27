@@ -15,6 +15,11 @@ urlpatterns = [
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("users/me/", views.MeAPIView.as_view(), name="user-me"),
     path("users/", views.UserListCreateAPIView.as_view(), name="user-list-create"),
+    path(
+        "users/<int:pk>/reset_password/",
+        views.UserPasswordResetAPIView.as_view(),
+        name="user-password-reset",
+    ),
     path("users/<int:pk>/", views.UserDetailAPIView.as_view(), name="user-detail"),
     path(
         "transactions/",

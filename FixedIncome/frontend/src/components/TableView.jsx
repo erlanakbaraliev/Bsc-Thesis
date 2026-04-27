@@ -8,17 +8,22 @@ import {
 
 // MUI components
 import {
+  Alert,
   Box,
   Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
   IconButton,
-  Tooltip,
-  Typography,
+  ListItemIcon,
   Menu,
   MenuItem,
-  ListItemIcon,
   Popover,
-  Dialog,
-  DialogContent
+  Snackbar,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -46,6 +51,7 @@ import { getOrdering, getColumnFilters } from '../utils/Utils.js'
 import { handleExportRows } from '../utils/CsvExportUtils.js';
 import { formatDateParam, formatDateTimeParam, formatDateTimeParamAPICall } from '../utils/DateUtils.js';
 import { API_ENDPOINTS } from '../config/Api.js';
+import { getApiErrorMessage } from '../utils/apiError.js';
 import { useAuth } from '../hooks/useAuth.js';
 
 
@@ -57,6 +63,7 @@ const TableView = () => {
   //data and fetching state
   const [data, setData] = useState([]);
   const [isError, setIsError] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRefetching, setIsRefetching] = useState(false);
   const [rowCount, setRowCount] = useState(0);
@@ -101,6 +108,8 @@ const TableView = () => {
 
   {/* ---- Csv Uploader ---- */ }
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   //if you want to avoid useEffect, look at the React Query example instead
   useEffect(() => {
@@ -135,10 +144,12 @@ const TableView = () => {
         setRowCount(response.data.count);
       } catch (error) {
         setIsError(true);
+        setLoadError(getApiErrorMessage(error));
         console.error(error);
         return;
       }
       setIsError(false);
+      setLoadError('');
       setIsLoading(false);
       setIsRefetching(false);
     };
@@ -239,15 +250,23 @@ const TableView = () => {
   );
 
   const handleBulkDelete = () => {
+    setBulkDeleteOpen(true);
+  };
+
+  const handleConfirmBulkDelete = () => {
     const selectedIds = Object.keys(rowSelection);
-    if (window.confirm(`Delete ${selectedIds.length} bonds?`)) {
-      AxiosInstance.delete('bonds/bulk_delete/', { data: { ids: selectedIds } })
-        .then(() => {
-          setData(prev => prev.filter(row => !selectedIds.includes(String(row.id))));
-          setRowSelection({});
-        })
-    }
-  }
+    AxiosInstance.delete('bonds/bulk_delete/', { data: { ids: selectedIds } })
+      .then(() => {
+        setData(prev => prev.filter(row => !selectedIds.includes(String(row.id))));
+        setRowSelection({});
+        setBulkDeleteOpen(false);
+      })
+      .catch((err) => {
+        console.error('Bulk delete failed:', err);
+        setExportError(getApiErrorMessage(err, 'Bulk delete failed'));
+        setBulkDeleteOpen(false);
+      });
+  };
 
   const getExportUrl = () => {
     const params = new URLSearchParams();
@@ -292,7 +311,7 @@ const TableView = () => {
     muiToolbarAlertBannerProps: isError
       ? {
         color: 'error',
-        children: 'Error loading data',
+        children: loadError || 'Error loading data',
       }
       : undefined,
     onColumnFiltersChange: setColumnFilters,
@@ -406,7 +425,7 @@ const TableView = () => {
                   window.URL.revokeObjectURL(blobUrl);
                 } catch (err) {
                   console.error('Export failed:', err);
-                  alert('Export failed. Please try again.');
+                  setExportError(getApiErrorMessage(err, 'Export failed. Please try again.'));
                 }
                 handleExportMenuClose();
               }}
@@ -560,6 +579,38 @@ const TableView = () => {
           </Box>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk delete confirmation dialog */}
+      <Dialog
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+      >
+        <DialogTitle>Delete Bonds</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete {Object.keys(rowSelection).length} selected
+            bond(s)? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDeleteOpen(false)}>Cancel</Button>
+          <Button onClick={handleConfirmBulkDelete} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Export error snackbar */}
+      <Snackbar
+        open={Boolean(exportError)}
+        autoHideDuration={6000}
+        onClose={() => setExportError('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setExportError('')} severity="error" variant="filled">
+          {exportError}
+        </Alert>
+      </Snackbar>
     </>
   )
 };

@@ -1,30 +1,59 @@
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import Bond, Issuer, Transaction
+from .models import Bond, Issuer, Transaction, UserProfile
 
 
 class UserSerializer(serializers.ModelSerializer):
     role = serializers.CharField(source="profile.role", required=False)
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        style={"input_type": "password"},
+    )
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "groups", "role"]
+        fields = ["id", "username", "email", "role", "password"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.context.get("require_password"):
+            self.fields["password"].required = True
+
+    def validate_password(self, value):
+        if not value:
+            if self.context.get("require_password") and self.instance is None:
+                raise serializers.ValidationError("This field is required.")
+            return value
+        user = self.instance or User(
+            username=self.initial_data.get("username", ""),
+            email=self.initial_data.get("email", ""),
+        )
+        validate_password(value, user=user)
+        return value
 
     def create(self, validated_data):
         profile_data = validated_data.pop("profile", {})
-        user = super().create(validated_data)
-        role = profile_data.get("role")
+        password = validated_data.pop("password")
+        role = profile_data.get("role", UserProfile.ROLE_VIEWER)
+        user = User.objects.create_user(
+            username=validated_data["username"],
+            email=validated_data.get("email", ""),
+            password=password,
+        )
         if role:
             user.profile.role = role
             user.profile.save(update_fields=["role"])
         return user
 
     def update(self, instance, validated_data):
+        validated_data.pop("password", None)
         profile_data = validated_data.pop("profile", {})
         user = super().update(instance, validated_data)
         role = profile_data.get("role")
-        if role:
+        if role is not None:
             user.profile.role = role
             user.profile.save(update_fields=["role"])
         return user
