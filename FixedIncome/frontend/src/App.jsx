@@ -3,7 +3,8 @@ import { Routes, Route, BrowserRouter } from 'react-router'
 import Home from './components/Home'
 import BondAnalyticsDashboard from './components/BondAnalyticsDashboard'
 import UserManagement from './components/UserManagement'
-import CreateIssuer from './components/CreateIssuer'
+import TransactionManagement from './components/TransactionManagement'
+import IssuerManagement from './components/IssuerManagement'
 import CreateBond from './components/CreateBond'
 import Navbar from './components/Navbar/Navbar'
 import LoginPage from './components/LoginPage.jsx'
@@ -32,16 +33,21 @@ function App({ themeMode, onToggleTheme }) {
                   <BondAnalyticsDashboard/>
                 </PrivateRouter>
               }/>
+              <Route path="/transactions/" element={
+                <PrivateRouter>
+                  <TransactionManagement/>
+                </PrivateRouter>
+              }/>
+              <Route path="/issuers/" element={
+                <PrivateRouter>
+                  <IssuerManagement/>
+                </PrivateRouter>
+              }/>
               <Route path="/users/" element={
                 <PrivateRouter allowedRoles={ADMIN_ONLY}>
                   <UserManagement/>
                 </PrivateRouter>
               }/>
-              <Route path="/create/issuer/" element={
-                <PrivateRouter allowedRoles={WRITE_ROLES}>
-                  <CreateIssuer/>
-                </PrivateRouter>
-              }/> 
               <Route path="/create/bond/" element={
                 <PrivateRouter allowedRoles={WRITE_ROLES}>
                   <CreateBond/>

@@ -11,6 +11,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -54,6 +55,11 @@ import { API_ENDPOINTS } from '../config/Api.js';
 import { getApiErrorMessage } from '../utils/apiError.js';
 import { useAuth } from '../hooks/useAuth.js';
 
+const ratingChipColor = (rating) => {
+  if (rating === 'AAA' || rating === 'AA') return 'success';
+  if (rating === 'A' || rating === 'BBB') return 'default';
+  return 'warning';
+};
 
 const TableView = () => {
   const { role } = useAuth();
@@ -194,6 +200,17 @@ const TableView = () => {
         header: 'Credit Rating',
         minSize: 100,
         size: 120,
+        Cell: ({ cell }) => {
+          const v = cell.getValue();
+          if (!v) return '—';
+          return (
+            <Chip
+              label={v}
+              color={ratingChipColor(v)}
+              size="small"
+            />
+          );
+        },
       },
       {
         accessorKey: 'bond_type',

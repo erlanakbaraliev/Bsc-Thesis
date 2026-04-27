@@ -54,9 +54,9 @@ function getUserOrdering(sorting) {
 }
 
 const roleChipColor = (role) => {
-  if (role === 'ADMIN') return 'primary';
-  if (role === 'EDITOR') return 'secondary';
-  return 'default';
+  if (role === 'ADMIN') return 'success';
+  if (role === 'EDITOR') return 'default';
+  return 'warning';
 };
 
 function UserManagementTable() {
@@ -286,7 +286,7 @@ function UserManagementTable() {
         <Box component="ul" sx={{ m: 0, pl: 2, '& li': { mb: 0.5 } }}>
           <li><strong>Admin</strong> — Full access: manage users, create / edit / delete bonds, import & export data</li>
           <li><strong>Editor</strong> — Can edit bonds and import / export data; cannot manage users or bulk-delete bonds</li>
-          <li><strong>Viewer</strong> — Read-only access: can view bond data only</li>
+          <li><strong>Viewer</strong> — Read-only bond and issuer catalogs; can open Trades but cannot record trades</li>
         </Box>
         <Typography variant="body2" sx={{ mt: 1.5 }}>
           Need a new role profile? Contact the development team at{' '}
