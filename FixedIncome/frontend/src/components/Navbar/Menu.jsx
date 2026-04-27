@@ -12,6 +12,8 @@ import AddBoxIcon from '@mui/icons-material/AddBox';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import BusinessIcon from '@mui/icons-material/Business';
 import { Link, useLocation } from 'react-router'
 import { useAuth } from '../../hooks/useAuth';
 
@@ -63,19 +65,25 @@ export default function Menu() {
             <ListItemText primary="Bond Dashboard" />
           </ListItemButton>
         </List>
+        <List component="div" disablePadding>
+          <ListItemButton sx={{ pl: 4 }} component={Link} to="/transactions/" selected={path === "/transactions/"}>
+            <ListItemIcon>
+              <SwapHorizIcon />
+            </ListItemIcon>
+            <ListItemText primary="Trades" />
+          </ListItemButton>
+        </List>
+        <List component="div" disablePadding>
+          <ListItemButton sx={{ pl: 4 }} component={Link} to="/issuers/" selected={path === "/issuers/"}>
+            <ListItemIcon>
+              <BusinessIcon />
+            </ListItemIcon>
+            <ListItemText primary="Issuers" />
+          </ListItemButton>
+        </List>
         {canWriteReferenceData && (
           <List component="div" disablePadding>
-            <ListItemButton sx={{ pl: 4 }} component={Link} to="/create/issuer" selected={path === "/create/issuer"}>
-              <ListItemIcon>
-                <AddBoxIcon />
-              </ListItemIcon>
-              <ListItemText primary="Create Issuer" />
-            </ListItemButton>
-          </List>
-        )}
-        {canWriteReferenceData && (
-          <List component="div" disablePadding>
-            <ListItemButton sx={{ pl: 4 }} component={Link} to="/create/bond" selected={path === "/create/bond"}>
+            <ListItemButton sx={{ pl: 4 }} component={Link} to="/create/bond/" selected={path === "/create/bond" || path === "/create/bond/"}>
               <ListItemIcon>
                 <AddBoxIcon />
               </ListItemIcon>

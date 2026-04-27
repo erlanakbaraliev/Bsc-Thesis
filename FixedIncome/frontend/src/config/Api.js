@@ -6,6 +6,10 @@ export const API_ENDPOINTS = {
   USERS: 'users/',
   USER_DETAIL: (id) => `users/${id}/`,
   USER_RESET_PASSWORD: (id) => `users/${id}/reset_password/`,
+  TRANSACTIONS: 'transactions/',
+  TRANSACTION_DETAIL: (id) => `transactions/${id}/`,
+  ISSUERS: 'issuers/',
+  ISSUER_DETAIL: (id) => `issuers/${id}/`,
 };
 
 export const getBondAnalytics = async () => {
