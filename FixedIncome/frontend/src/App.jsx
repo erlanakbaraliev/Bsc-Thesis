@@ -2,6 +2,7 @@ import './App.css'
 import { Routes, Route, BrowserRouter } from 'react-router'
 import Home from './components/Home'
 import BondAnalyticsDashboard from './components/BondAnalyticsDashboard'
+import TreasuryYieldDashboard from './components/TreasuryYieldDashboard'
 import UserManagement from './components/UserManagement'
 import TransactionManagement from './components/TransactionManagement'
 import IssuerManagement from './components/IssuerManagement'
@@ -31,6 +32,11 @@ function App({ themeMode, onToggleTheme }) {
               <Route path="/dashboard/" element={
                 <PrivateRouter>
                   <BondAnalyticsDashboard/>
+                </PrivateRouter>
+              }/>
+              <Route path="/treasury/" element={
+                <PrivateRouter>
+                  <TreasuryYieldDashboard/>
                 </PrivateRouter>
               }/>
               <Route path="/transactions/" element={

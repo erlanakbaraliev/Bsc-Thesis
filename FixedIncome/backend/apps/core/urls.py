@@ -39,6 +39,16 @@ urlpatterns = [
     ),
     path("bonds/", views.BondListCreateAPIView.as_view(), name="bond-list-create"),
     path("bonds/analytics/", views.BondAnalyticsAPIView.as_view(), name="bond-analytics"),
+    path(
+        "treasury-yields/dashboard/",
+        views.TreasuryYieldDashboardAPIView.as_view(),
+        name="treasury-yield-dashboard",
+    ),
+    path(
+        "treasury-yields/sync/",
+        views.TreasuryYieldSyncAPIView.as_view(),
+        name="treasury-yield-sync",
+    ),
     path("bonds/<int:pk>/", views.BondDetailView.as_view(), name="bond-detail"),
     path(
         "bonds/bulk_delete/",

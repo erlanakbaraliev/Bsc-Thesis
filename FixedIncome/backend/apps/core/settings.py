@@ -16,10 +16,14 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from apps.core.utils.utils import create_db_setup, get_db_env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+# Populate os.environ from backend/.env so ALPHAVANTAGE_API_KEY and others work locally.
+load_dotenv(BASE_DIR / ".env")
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -75,6 +79,13 @@ SECRET_KEY = os.getenv(
 DEBUG = get_bool_env("DJANGO_DEBUG", True)
 
 ALLOWED_HOSTS = get_csv_env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
+
+# Alpha Vantage (server-side only; used for TREASURY_YIELD sync)
+ALPHAVANTAGE_API_KEY = os.getenv("ALPHAVANTAGE_API_KEY", "")
+# Free tier: at most ~1 request per second; space serial TREASURY_YIELD calls.
+ALPHAVANTAGE_REQUEST_DELAY_SEC = float(
+    os.getenv("ALPHAVANTAGE_REQUEST_DELAY_SEC", "1.1")
+)
 
 
 # Application definition

@@ -14,6 +14,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import BusinessIcon from '@mui/icons-material/Business';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
 import { Link, useLocation } from 'react-router'
 import { useAuth } from '../../hooks/useAuth';
 
@@ -63,6 +64,14 @@ export default function Menu() {
               <PieChartIcon />
             </ListItemIcon>
             <ListItemText primary="Bond Dashboard" />
+          </ListItemButton>
+        </List>
+        <List component="div" disablePadding>
+          <ListItemButton sx={{ pl: 4 }} component={Link} to="/treasury/" selected={path === "/treasury/"}>
+            <ListItemIcon>
+              <ShowChartIcon />
+            </ListItemIcon>
+            <ListItemText primary="Treasury Yields" />
           </ListItemButton>
         </List>
         <List component="div" disablePadding>
