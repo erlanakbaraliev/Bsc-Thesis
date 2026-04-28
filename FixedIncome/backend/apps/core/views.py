@@ -23,8 +23,10 @@ from rest_framework.views import APIView, Response
 
 from apps.core.utils.utils import decode_csv_file, parse_date
 
+from .alphavantage_treasury import AlphaVantageTreasuryError, sync_treasury_yields
 from .analytics import build_bond_analytics
-from .models import Bond, Issuer, Transaction, UserProfile
+from .models import Bond, Issuer, Transaction, TreasuryYieldObservation, UserProfile
+from .treasury_yield_service import build_treasury_dashboard
 from .pagination import StandardResultsSetPagination
 from .permissions import (
     CanCreateTransaction,
@@ -409,6 +411,68 @@ class BondAnalyticsAPIView(APIView):
             },
         )
         return Response(analytics, status=status.HTTP_200_OK)
+
+
+ALLOWED_TREASURY_INTERVALS = frozenset({TreasuryYieldObservation.INTERVAL_MONTHLY})
+
+
+class TreasuryYieldDashboardAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        interval = request.query_params.get(
+            "interval", TreasuryYieldObservation.INTERVAL_MONTHLY
+        )
+        if interval not in ALLOWED_TREASURY_INTERVALS:
+            return Response(
+                {"detail": "Unsupported interval."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        payload = build_treasury_dashboard(interval)
+        logger.info(
+            "Treasury dashboard retrieved",
+            extra={"user_id": request.user.id, "interval": interval},
+        )
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+class TreasuryYieldSyncAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        if not CanWriteReferenceData().has_permission(request, self):
+            logger.warning(
+                "Treasury sync forbidden",
+                extra={"user_id": request.user.id},
+            )
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        interval = request.data.get(
+            "interval", TreasuryYieldObservation.INTERVAL_MONTHLY
+        )
+        if isinstance(interval, str):
+            interval = interval.strip()
+        if interval not in ALLOWED_TREASURY_INTERVALS:
+            return Response(
+                {"detail": "Unsupported interval."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            summary = sync_treasury_yields(interval=interval)
+        except AlphaVantageTreasuryError as exc:
+            logger.warning(
+                "Treasury sync failed",
+                extra={"user_id": request.user.id, "error": str(exc)},
+            )
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        logger.info(
+            "Treasury yields synced via API",
+            extra={
+                "user_id": request.user.id,
+                "interval": interval,
+                "total": summary["total_upserted"],
+            },
+        )
+        return Response(summary, status=status.HTTP_200_OK)
 
 
 class BondDetailView(APIView):

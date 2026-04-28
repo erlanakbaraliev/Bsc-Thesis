@@ -1,14 +1,24 @@
 import csv
 import io
+from datetime import date
+from decimal import Decimal
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import User
+from django.test import override_settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.models import Bond, Issuer, Transaction, UserProfile
+from apps.core.models import (
+    Bond,
+    Issuer,
+    Transaction,
+    TreasuryYieldObservation,
+    UserProfile,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -729,6 +739,135 @@ class BondAnalyticsAPIViewTest(APITestCase):
         maturity_points = response.data["maturityTimeline"]
         self.assertEqual(len(maturity_points), 6)
         self.assertTrue(all("label" in item and "value" in item for item in maturity_points))
+
+
+# ---------------------------------------------------------------------------
+# Treasury yields (Alpha Vantage dashboard + sync)
+# ---------------------------------------------------------------------------
+
+
+class TreasuryYieldDashboardTest(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(username="treasury-admin", password="x")
+        self.editor = User.objects.create_user(username="treasury-editor", password="x")
+        self.viewer = User.objects.create_user(username="treasury-viewer", password="x")
+        self.editor.profile.role = UserProfile.ROLE_EDITOR
+        self.editor.profile.save(update_fields=["role"])
+        self.viewer.profile.role = UserProfile.ROLE_VIEWER
+        self.viewer.profile.save(update_fields=["role"])
+
+    def test_dashboard_requires_auth(self):
+        response = self.client.get("/treasury-yields/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_dashboard_empty_contract(self):
+        client = auth_client(self.admin)
+        response = client.get("/treasury-yields/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["interval"], "monthly")
+        self.assertIn("series", response.data)
+        self.assertIn("yield_curve", response.data)
+        self.assertIn("spread", response.data)
+        self.assertEqual(response.data["yield_curve"]["points"], [])
+        self.assertEqual(response.data["spread"], [])
+
+    def test_dashboard_yield_curve_and_spread_from_db(self):
+        interval = TreasuryYieldObservation.INTERVAL_MONTHLY
+        d = date(2026, 2, 1)
+        TreasuryYieldObservation.objects.create(
+            observation_date=d,
+            maturity=TreasuryYieldObservation.MATURITY_2Y,
+            interval=interval,
+            yield_pct="2.10",
+        )
+        TreasuryYieldObservation.objects.create(
+            observation_date=d,
+            maturity=TreasuryYieldObservation.MATURITY_10Y,
+            interval=interval,
+            yield_pct="4.10",
+        )
+        TreasuryYieldObservation.objects.create(
+            observation_date=d,
+            maturity=TreasuryYieldObservation.MATURITY_30Y,
+            interval=interval,
+            yield_pct="4.60",
+        )
+        client = auth_client(self.admin)
+        response = client.get("/treasury-yields/dashboard/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["yield_curve"]["as_of"], d.isoformat())
+        pts = response.data["yield_curve"]["points"]
+        self.assertEqual(len(pts), 3)
+        self.assertEqual(
+            [p["tenorYears"] for p in pts],
+            [2, 10, 30],
+        )
+        spread = response.data["spread"]
+        self.assertEqual(len(spread), 1)
+        self.assertEqual(spread[0]["date"], d.isoformat())
+        self.assertEqual(Decimal(spread[0]["spread_pct"]), Decimal("2.0000"))
+        self.assertEqual(Decimal(spread[0]["spread_bp"]), Decimal("200.0000"))
+
+    def test_dashboard_bad_interval(self):
+        client = auth_client(self.admin)
+        response = client.get("/treasury-yields/dashboard/", {"interval": "daily"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_sync_forbidden_for_viewer(self):
+        client = auth_client(self.viewer, role=UserProfile.ROLE_VIEWER)
+        response = client.post("/treasury-yields/sync/", {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(
+        ALPHAVANTAGE_API_KEY="test-key",
+        ALPHAVANTAGE_REQUEST_DELAY_SEC=0,
+    )
+    @patch("apps.core.alphavantage_treasury.requests.get")
+    def test_sync_editor_upserts_rows(self, mock_get):
+        payloads = [
+            {
+                "data": [
+                    {"date": "2026-01-01", "value": "2.0"},
+                    {"date": "2026-02-01", "value": "2.1"},
+                ]
+            },
+            {
+                "data": [
+                    {"date": "2026-01-01", "value": "4.0"},
+                    {"date": "2026-02-01", "value": "4.1"},
+                ]
+            },
+            {
+                "data": [
+                    {"date": "2026-01-01", "value": "4.5"},
+                    {"date": "2026-02-01", "value": "4.6"},
+                ]
+            },
+        ]
+
+        def side_effect(*_a, **_k):
+            m = MagicMock()
+            m.raise_for_status = MagicMock()
+            m.json.return_value = payloads.pop(0)
+            return m
+
+        mock_get.side_effect = side_effect
+
+        client = auth_client(self.editor, role=UserProfile.ROLE_EDITOR)
+        response = client.post(
+            "/treasury-yields/sync/",
+            {"interval": TreasuryYieldObservation.INTERVAL_MONTHLY},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_upserted"], 6)
+        self.assertEqual(TreasuryYieldObservation.objects.count(), 6)
+
+        dash = client.get("/treasury-yields/dashboard/")
+        self.assertEqual(dash.status_code, status.HTTP_200_OK)
+        spreads = dash.data["spread"]
+        feb = next(s for s in spreads if s["date"] == "2026-02-01")
+        self.assertEqual(Decimal(feb["spread_pct"]), Decimal("2.0000"))
 
 
 # ---------------------------------------------------------------------------

@@ -140,6 +140,47 @@ class Transaction(models.Model):
         return f"{self.action} {self.quantity} of {self.bond.isin}"
 
 
+class TreasuryYieldObservation(models.Model):
+    """Stored US Treasury constant maturity yields from Alpha Vantage TREASURY_YIELD."""
+
+    MATURITY_2Y = "2year"
+    MATURITY_10Y = "10year"
+    MATURITY_30Y = "30year"
+    MATURITY_CHOICES = [
+        (MATURITY_2Y, "2-Year"),
+        (MATURITY_10Y, "10-Year"),
+        (MATURITY_30Y, "30-Year"),
+    ]
+
+    INTERVAL_MONTHLY = "monthly"
+    INTERVAL_CHOICES = [
+        (INTERVAL_MONTHLY, "Monthly"),
+    ]
+
+    observation_date = models.DateField(db_index=True)
+    maturity = models.CharField(max_length=10, choices=MATURITY_CHOICES)
+    interval = models.CharField(
+        max_length=16, choices=INTERVAL_CHOICES, default=INTERVAL_MONTHLY
+    )
+    yield_pct = models.DecimalField(
+        max_digits=8,
+        decimal_places=4,
+        help_text="Yield in percent (e.g. 4.25 for 4.25%).",
+    )
+    fetched_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["observation_date", "maturity", "interval"],
+                name="uniq_treasury_yield_obs_date_maturity_interval",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.maturity} @ {self.observation_date}: {self.yield_pct}%"
+
+
 class UserProfile(models.Model):
     ROLE_ADMIN = "ADMIN"
     ROLE_EDITOR = "EDITOR"
