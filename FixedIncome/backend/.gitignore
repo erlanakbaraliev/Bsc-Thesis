@@ -11,6 +11,7 @@ coverage.xml
 # Env
 .venv/
 env/
+.env
 
 # Static files
 node_modules/
@@ -20,3 +21,6 @@ node_modules/
 
 # Logs
 app.log
+
+# VSCode files
+.vscode/
