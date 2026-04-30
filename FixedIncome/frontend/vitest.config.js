@@ -10,5 +10,15 @@ export default defineConfig({
     include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx}'],
     css: true,
     clearMocks: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['html'],
+      reportsDirectory: './htmlcov',
+      include: ['src/**/*.{js,jsx}'],
+      exclude: [
+        'src/main.jsx',
+        'src/test/**',
+      ],
+    },
   },
 });
